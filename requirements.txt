@@ -1,0 +1,12 @@
+matplotlib==3.9.2
+mediapipe==0.10.14
+mmengine==0.10.4
+numpy==2.0.2
+opencv-contrib-python==4.10.0.84
+opencv-python==4.10.0.84
+openmesh==1.2.1
+pillow==10.4.0
+setuptools==74.1.2
+torch==2.2.0
+torchaudio==2.2.0
+torchvision==0.17.0
