@@ -1,3 +1,5 @@
+from mmengine.dataset import Compose
+from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from template.registry import DATASETS
@@ -61,7 +63,7 @@ class _MPIIGaze_PP(Dataset):
     '''
 
     self.n_samples = self._load_data(root)
-    self.transform = transform
+    self.transform = self._build_transform(transform)
 
   def _load_data(self, root):
     dates = sorted(os.listdir(root))
@@ -75,6 +77,17 @@ class _MPIIGaze_PP(Dataset):
       setattr(self, attr, attr_value)
 
     return len(self.l_img) + len(self.r_img)
+
+  def _build_transform(self, transform):
+    if transform is None:
+      transform = dict(type='ToTensor')
+
+    if isinstance(transform, dict):
+      transform = [transform]
+    if isinstance(transform, (list, tuple)):
+      transform = Compose(transform)
+
+    return transform
 
   def __len__(self):
     return self.n_samples
@@ -99,7 +112,8 @@ class _MPIIGaze_PP(Dataset):
     gaze = torch.tensor(gaze, dtype=torch.float32)
     pose = torch.tensor(pose, dtype=torch.float32)
 
-    img = torch.tensor(img, dtype=torch.float32)
-    if self.transform: img = self.transform(img)
+    img = Image.fromarray(img, mode='L')
+    if self.transform:
+      img = self.transform(img)
 
     return dict(eyes=img, pose=pose), dict(gaze=gaze)
