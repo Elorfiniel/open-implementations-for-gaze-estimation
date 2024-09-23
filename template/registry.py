@@ -41,7 +41,7 @@ MODELS = Registry('model', parent=MMENGINE_MODELS, locations=['template.models']
 # mangage all kinds of optimizers like `SGD` and `Adam`
 OPTIMIZERS = Registry('optimizer', parent=MMENGINE_OPTIMIZERS, locations=['template.engine.optimizers'])
 # manage optimizer wrapper
-OPTIM_WRAPPERS = Registry('optim_wrapper', parent=MMENGINE_OPTIM_WRAPPERS, locations=['template.engine.optim_wrapper'])
+OPTIM_WRAPPERS = Registry('optim_wrapper', parent=MMENGINE_OPTIM_WRAPPERS, locations=['template.engine.optim_wrappers'])
 # mangage all kinds of parameter schedulers like `MultiStepLR`
 PARAM_SCHEDULERS = Registry('parameter scheduler', parent=MMENGINE_PARAM_SCHEDULERS, locations=['template.engine.schedulers'])
 
