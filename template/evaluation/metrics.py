@@ -11,7 +11,7 @@ class AngularError_PitchYaw(BaseMetric):
     x = -torch.cos(gaze_2d[:, 0]) * torch.sin(gaze_2d[:, 1])
     y = -torch.sin(gaze_2d[:, 0])
     z = -torch.cos(gaze_2d[:, 0]) * torch.cos(gaze_2d[:, 1])
-    return torch.cat([x, y, z], dim=1)
+    return torch.stack([x, y, z], dim=1)
 
   def process(self, data_batch, data_samples):
     preds_2d, gazes_2d = data_samples
