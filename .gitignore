@@ -5,8 +5,10 @@ __pycache__
 *.egg-info
 
 # ignore temporary files for training and testing
-data
-runs
+data/*
+!data/.gitkeep
+runs/*
+!runs/.gitkeep
 
 # ignore temporary scripts and backup files
 *tmp*.py
