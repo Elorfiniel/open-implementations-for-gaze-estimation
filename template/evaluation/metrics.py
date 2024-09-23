@@ -25,7 +25,7 @@ class AngularError_PitchYaw(BaseMetric):
     degs = torch.rad2deg(torch.acos(dot / (m_p * m_g)))
     errs = torch.mean(degs).cpu()
 
-    self.results.append(errs=errs)
+    self.results.append(dict(errs=errs))
 
   def compute_metrics(self, results):
     return dict(mae=sum([r['errs'] for r in results]) / len(results))
