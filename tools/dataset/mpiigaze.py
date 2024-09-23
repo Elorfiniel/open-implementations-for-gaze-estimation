@@ -53,12 +53,11 @@ def _ext_normalized_pp_dd(mat, pp_dd_folder):
   r_img = mat_data['right'][0, 0]['image'][0, 0].astype(np.uint8)
   r_pose = mat_data['right'][0, 0]['pose'][0, 0].astype(np.float32)
 
-  np.save(osp.join(pp_dd_folder, 'l_gaze.npy'), l_gaze) # (N, 3)
-  np.save(osp.join(pp_dd_folder, 'l_img.npy'), l_img)   # (N, 36, 60)
-  np.save(osp.join(pp_dd_folder, 'l_pose.npy'), l_pose) # (N, 3)
-  np.save(osp.join(pp_dd_folder, 'r_gaze.npy'), r_gaze) # (N, 3)
-  np.save(osp.join(pp_dd_folder, 'r_img.npy'), r_img)   # (N, 36, 60)
-  np.save(osp.join(pp_dd_folder, 'r_pose.npy'), r_pose) # (N, 3)
+  for filename, ndarray in zip(
+    ['l_gaze.npy', 'l_img.npy', 'l_pose.npy', 'r_gaze.npy', 'r_img.npy', 'r_pose.npy'],
+    [l_gaze, l_img, l_pose, r_gaze, r_img, r_pose],
+    # [(N, 3), (N, 36, 60), (N, 3), (N, 3), (N, 36, 60), (N, 3)]
+  ): np.save(osp.join(pp_dd_folder, filename), ndarray)
 
 def ext_normalized_data(dataset_path: str, opt_folder: str):
   _logger.info(f'extract normalized data from MPIIGaze dataset')
@@ -163,7 +162,9 @@ def _gen_normalized_pp_dd(date_folder, cam_data, scn_pose, scn_size, pp_dd_folde
     warp_r, Kv_r, S_r, R2_r, W_r = reye_result
 
     leye_gaze = np.dot(np.dot(S_l, R2_l), tgt_cam - le)
+    leye_gaze = leye_gaze / np.linalg.norm(leye_gaze)
     reye_gaze = np.dot(np.dot(S_r, R2_r), tgt_cam - re)
+    reye_gaze = reye_gaze / np.linalg.norm(reye_gaze)
 
     leye_img = cv2.equalizeHist(cv2.cvtColor(warp_l, cv2.COLOR_BGR2GRAY))
     reye_img = cv2.equalizeHist(cv2.cvtColor(warp_r, cv2.COLOR_BGR2GRAY))
@@ -183,12 +184,11 @@ def _gen_normalized_pp_dd(date_folder, cam_data, scn_pose, scn_size, pp_dd_folde
   r_img = np.stack(r_img, axis=0).astype(np.uint8)
   r_pose = np.stack(r_pose, axis=0).astype(np.float32)
 
-  np.save(osp.join(pp_dd_folder, 'l_gaze.npy'), l_gaze) # (N, 3)
-  np.save(osp.join(pp_dd_folder, 'l_img.npy'), l_img)   # (N, 36, 60)
-  np.save(osp.join(pp_dd_folder, 'l_pose.npy'), l_pose) # (N, 3)
-  np.save(osp.join(pp_dd_folder, 'r_gaze.npy'), r_gaze) # (N, 3)
-  np.save(osp.join(pp_dd_folder, 'r_img.npy'), r_img)   # (N, 36, 60)
-  np.save(osp.join(pp_dd_folder, 'r_pose.npy'), r_pose) # (N, 3)
+  for filename, ndarray in zip(
+    ['l_gaze.npy', 'l_img.npy', 'l_pose.npy', 'r_gaze.npy', 'r_img.npy', 'r_pose.npy'],
+    [l_gaze, l_img, l_pose, r_gaze, r_img, r_pose],
+    # [(N, 3), (N, 36, 60), (N, 3), (N, 3), (N, 36, 60), (N, 3)]
+  ): np.save(osp.join(pp_dd_folder, filename), ndarray)
 
 def gen_normalized_data(dataset_path: str, opt_folder: str):
   _logger.info(f'generate normalized data for MPIIGaze dataset')
