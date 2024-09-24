@@ -22,7 +22,11 @@ class AngularError_PitchYaw(BaseMetric):
     m_p = torch.linalg.vector_norm(preds_3d, ord=2, dim=1)
     m_g = torch.linalg.vector_norm(gazes_3d, ord=2, dim=1)
 
-    degs = torch.rad2deg(torch.acos(dot / (m_p * m_g)))
+    # clamp cosine similarity to [-1, 1], to avoid NaNs
+    # caused by numeric error, eg. 1.0000001
+    sims = torch.clamp(dot / (m_p * m_g), min=-1.0, max=1.0)
+
+    degs = torch.rad2deg(torch.acos(sims))
     errs = torch.mean(degs).cpu()
 
     self.results.append(dict(errs=errs))
