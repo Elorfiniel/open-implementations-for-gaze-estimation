@@ -8,8 +8,6 @@ _base_ = [
 custom_hooks = [
   dict(
     type='CheckpointHook',
-    interval=1,
-    by_epoch=True,
     save_best='mae',
     rule='less',
     save_last=False,

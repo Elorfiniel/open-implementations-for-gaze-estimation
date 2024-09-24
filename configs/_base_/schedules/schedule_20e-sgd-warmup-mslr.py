@@ -29,7 +29,7 @@ param_scheduler = [
 ]
 
 # runner schedule settings
-train_cfg = dict(by_epoch=True, max_epochs=50, val_begin=1, val_interval=1)
+train_cfg = dict(by_epoch=True, max_epochs=20, val_begin=1, val_interval=1)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
