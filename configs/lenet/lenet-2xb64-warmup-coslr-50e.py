@@ -12,7 +12,6 @@ custom_hooks = [
     by_epoch=True,
     save_best='mae',
     rule='less',
-    save_begin=10,
-    max_keep_ckpts=4,
+    save_last=False,
   ),
 ]
