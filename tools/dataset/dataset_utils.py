@@ -10,11 +10,11 @@ __all__ = ['fetch_dataset_logger', 'create_data_folder']
 _stream_handler = logging.StreamHandler()
 _stream_handler.setLevel(logging.INFO)
 
-formatter = logging.Formatter(
+_formatter = logging.Formatter(
   '[ %(asctime)s ] [ %(name)s ] process %(process)d - %(levelname)s: %(message)s',
   datefmt='%m-%d %H:%M:%S',
 )
-_stream_handler.setFormatter(formatter)
+_stream_handler.setFormatter(_formatter)
 
 _module_logger = logging.getLogger('dataset')
 _module_logger.addHandler(_stream_handler)
