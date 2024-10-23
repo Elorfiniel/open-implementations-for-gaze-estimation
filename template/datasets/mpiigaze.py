@@ -15,7 +15,7 @@ import template.datasets.utils as utils
 
 @DATASETS.register_module()
 class MPIIGaze(Dataset):
-  def __init__(self, root, train=True, test_pp='p00', transform=None):
+  def __init__(self, root, train=True, test_pp='p00', eval_subset=False, transform=None):
     '''MPIIGaze Dataset.
 
     `root`: Root directory of dataset where prepared data for each person
@@ -24,6 +24,9 @@ class MPIIGaze(Dataset):
     `train`: load data for training, otherwise for testing.
 
     `test_pp`: Person ID for Leave-One-Out test, eg. 'p00'.
+
+    `eval_subset`: only use data from eval subset, which contains 3000 samples
+    for each person in an accompanying folder of the root directory.
 
     `transform`: Image transformation.
     '''
@@ -37,12 +40,14 @@ class MPIIGaze(Dataset):
       self.data = ConcatDataset([
         _MPIIGaze_PP(
           root=osp.join(root, train_pp),
+          eval_subset=eval_subset,
           transform=transform,
         ) for train_pp in person_indices
       ])
     else:
       self.data = _MPIIGaze_PP(
         root=osp.join(root, test_pp),
+        eval_subset=eval_subset,
         transform=transform,
       )
 
@@ -54,26 +59,60 @@ class MPIIGaze(Dataset):
 
 
 class _MPIIGaze_PP(Dataset):
-  def __init__(self, root, transform=None):
+  def __init__(self, root, eval_subset=False, transform=None):
     '''Load data for one person in MPIIGaze dataset.
 
     `root`: Root directory of data for one person, eg. 'data/mpiigaze/normalized-ext/p00'.
 
+    `eval_subset`: only use data from eval subset. See also `MPIIGaze`.
+
     `transform`: Image transformation.
     '''
 
-    self.n_samples = self._load_data(root)
+    self.n_samples = self._load_data(root, eval_subset)
     self.transform = self._build_transform(transform)
 
-  def _load_data(self, root):
+  def _parse_eval_lines(self, lines):
+    l_eval, r_eval = dict(), dict() # left vs. right
+
+    for line in lines:
+      file_path, side = line.split(' ')
+      dd, img_path = osp.split(file_path)
+      cnt = int(osp.splitext(img_path)[0])
+
+      x_eval = l_eval if 'l' in side else r_eval
+      if dd not in x_eval:
+        x_eval[dd] = [cnt - 1]
+      else:
+        x_eval[dd].append(cnt - 1)
+
+    return l_eval, r_eval
+
+  def _load_data(self, root, eval_subset):
+    if eval_subset:
+      eval_root = osp.join(osp.dirname(osp.dirname(root)), 'evaluation')
+      if not osp.exists(eval_root):
+        raise RuntimeError(f'No evaluation subset found in "{root}".')
+
+      eval_file = osp.join(eval_root, f'{osp.basename(root)}.txt')
+      with open(eval_file, 'r') as fp:
+        lines = [line.strip() for line in fp]
+        l_eval, r_eval = self._parse_eval_lines(lines)
+
     dates = sorted(os.listdir(root))
 
     attrs = ['l_gaze', 'l_img', 'l_pose', 'r_gaze', 'r_img', 'r_pose']
     for attr in attrs:
-      attr_value = np.concatenate([
-        np.load(osp.join(root, dd, f'{attr}.npy'))
-        for dd in dates
-      ], axis=0)
+      attr_value = [] # a list of loaded ndarrays
+      for dd in dates:
+        data = np.load(osp.join(root, dd, f'{attr}.npy'))
+        if eval_subset:
+          x_eval = l_eval if 'l' in attr else r_eval
+          data = data[x_eval.get(dd, [])]
+        if data.size > 0:
+          attr_value.append(data)
+
+      attr_value = np.concatenate(attr_value, axis=0)
       setattr(self, attr, attr_value)
 
     return len(self.l_img) + len(self.r_img)
