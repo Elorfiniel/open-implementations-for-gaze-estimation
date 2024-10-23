@@ -15,7 +15,7 @@ import template.datasets.utils as utils
 
 @DATASETS.register_module()
 class MPIIGaze(Dataset):
-  def __init__(self, root, train, test_pp, transform=None):
+  def __init__(self, root, train=True, test_pp='p00', transform=None):
     '''MPIIGaze Dataset.
 
     `root`: Root directory of dataset where prepared data for each person
