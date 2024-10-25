@@ -20,8 +20,8 @@ class MPIIGaze_LeNet(BaseModel):
     https://arxiv.org/abs/1504.02863
   '''
 
-  def __init__(self):
-    super(MPIIGaze_LeNet, self).__init__()
+  def __init__(self, init_cfg=None):
+    super(MPIIGaze_LeNet, self).__init__(init_cfg=init_cfg)
 
     self.conv = nn.Sequential(
       nn.Conv2d(in_channels=1, out_channels=20, kernel_size=5, stride=1),
@@ -66,8 +66,8 @@ class MPIIGaze_GazeNet(BaseModel):
     https://arxiv.org/abs/1711.09017
   '''
 
-  def __init__(self):
-    super(MPIIGaze_GazeNet, self).__init__()
+  def __init__(self, init_cfg=None):
+    super(MPIIGaze_GazeNet, self).__init__(init_cfg=init_cfg)
 
     pretrained_vgg16 = tv.models.vgg16(
       weights=tv.models.VGG16_Weights.DEFAULT,
