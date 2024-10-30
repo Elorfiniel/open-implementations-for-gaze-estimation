@@ -1,6 +1,6 @@
 from mmengine.model import BaseModel
 
-from template.registry import MODELS
+from template.registry import MODELS, LOSSES
 
 import torch as torch
 import torch.nn as nn
@@ -20,7 +20,7 @@ class MPIIGaze_LeNet(BaseModel):
     https://arxiv.org/abs/1504.02863
   '''
 
-  def __init__(self, init_cfg=None):
+  def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
     super(MPIIGaze_LeNet, self).__init__(init_cfg=init_cfg)
 
     self.conv = nn.Sequential(
@@ -37,6 +37,8 @@ class MPIIGaze_LeNet(BaseModel):
 
     self.fc_2 = nn.Linear(in_features=500+2, out_features=2)
 
+    self.loss_fn = LOSSES.build(loss_cfg)
+
   def forward(self, ipts, tgts, mode='tensor'):
     feats = self.conv(ipts['eyes'])
     feats = self.fc_1(torch.flatten(feats, start_dim=1))
@@ -44,7 +46,7 @@ class MPIIGaze_LeNet(BaseModel):
     gazes = self.fc_2(torch.cat([feats, ipts['pose']], dim=1))
 
     if mode == 'loss':
-      loss = nn.functional.smooth_l1_loss(gazes, tgts['gaze'])
+      loss = self.loss_fn(gazes, tgts['gaze'])
       return dict(loss=loss)
 
     if mode == 'predict':
@@ -66,7 +68,7 @@ class MPIIGaze_GazeNet(BaseModel):
     https://arxiv.org/abs/1711.09017
   '''
 
-  def __init__(self, init_cfg=None):
+  def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
     super(MPIIGaze_GazeNet, self).__init__(init_cfg=init_cfg)
 
     pretrained_vgg16 = tv.models.vgg16(
@@ -93,6 +95,8 @@ class MPIIGaze_GazeNet(BaseModel):
       nn.Linear(in_features=4096, out_features=2),
     )
 
+    self.loss_fn = LOSSES.build(loss_cfg)
+
   def forward(self, ipts, tgts, mode='tensor'):
     feats = self.conv(ipts['eyes'])
     feats = self.fc_1(torch.flatten(feats, start_dim=1))
@@ -100,7 +104,7 @@ class MPIIGaze_GazeNet(BaseModel):
     gazes = self.fc_2(torch.cat([feats, ipts['pose']], dim=1))
 
     if mode == 'loss':
-      loss = nn.functional.smooth_l1_loss(gazes, tgts['gaze'])
+      loss = self.loss_fn(gazes, tgts['gaze'])
       return dict(loss=loss)
 
     if mode == 'predict':

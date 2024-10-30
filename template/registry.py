@@ -37,11 +37,13 @@ TRANSFORMS = Registry('transform', parent=MMENGINE_TRANSFORMS, locations=['templ
 
 # mangage all kinds of modules inheriting `nn.Module`
 MODELS = Registry('model', parent=MMENGINE_MODELS, locations=['template.models'])
+# manage all kinds of loss functions like `MSELoss`
+LOSSES = Registry('loss', locations=['template.losses'])
 
 # mangage all kinds of optimizers like `SGD` and `Adam`
 OPTIMIZERS = Registry('optimizer', parent=MMENGINE_OPTIMIZERS, locations=['template.engine.optimizers'])
 # manage optimizer wrapper
-OPTIM_WRAPPERS = Registry('optim_wrapper', parent=MMENGINE_OPTIM_WRAPPERS, locations=['template.engine.optim_wrappers'])
+OPTIM_WRAPPERS = Registry('optim wrapper', parent=MMENGINE_OPTIM_WRAPPERS, locations=['template.engine.optim_wrappers'])
 # mangage all kinds of parameter schedulers like `MultiStepLR`
 PARAM_SCHEDULERS = Registry('parameter scheduler', parent=MMENGINE_PARAM_SCHEDULERS, locations=['template.engine.schedulers'])
 
@@ -57,7 +59,7 @@ EVALUATOR = Registry('evaluator', parent=MMENGINE_EVALUATOR, locations=['templat
 RUNNER_CONSTRUCTORS = Registry('runner constructor', parent=MMENGINE_RUNNER_CONSTRUCTORS)
 
 # mangage all kinds of model wrappers like 'MMDistributedDataParallel'
-MODEL_WRAPPERS = Registry('model_wrapper', parent=MMENGINE_MODEL_WRAPPERS)
+MODEL_WRAPPERS = Registry('model wrapper', parent=MMENGINE_MODEL_WRAPPERS)
 # mangage all kinds of weight initialization modules like `Uniform`
 WEIGHT_INITIALIZERS = Registry('weight initializer', parent=MMENGINE_WEIGHT_INITIALIZERS)
 
@@ -70,10 +72,10 @@ TASK_UTILS = Registry('task util', parent=MMENGINE_TASK_UTILS)
 # manage visualizer
 VISUALIZERS = Registry('visualizer', parent=MMENGINE_VISUALIZERS)
 # manage visualizer backend
-VISBACKENDS = Registry('vis_backend', parent=MMENGINE_VISBACKENDS)
+VISBACKENDS = Registry('vis backend', parent=MMENGINE_VISBACKENDS)
 
 # manage logprocessor
-LOG_PROCESSORS = Registry('log_processor', parent=MMENGINE_LOG_PROCESSORS)
+LOG_PROCESSORS = Registry('log processor', parent=MMENGINE_LOG_PROCESSORS)
 
 # manage function
 FUNCTIONS = Registry('function', parent=MMENGINE_FUNCTIONS)
