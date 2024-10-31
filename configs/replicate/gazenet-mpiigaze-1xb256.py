@@ -13,7 +13,6 @@ custom_hooks = [
     rule='less',
     save_last=False,
   ),
-  dict(type='EMAHook'),
 ]
 
 # shared settings
