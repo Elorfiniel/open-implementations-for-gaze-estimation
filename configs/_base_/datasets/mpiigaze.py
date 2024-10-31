@@ -35,7 +35,6 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-
 # evaluator settings
 val_evaluator = dict(type='AngularError_PitchYaw')
 test_evaluator = dict(type='AngularError_PitchYaw')

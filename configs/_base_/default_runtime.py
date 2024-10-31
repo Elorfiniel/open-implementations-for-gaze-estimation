@@ -1,3 +1,4 @@
+# runtime settings
 default_scope = 'template'
 
 env_cfg = dict(
@@ -21,3 +22,10 @@ log_level = 'INFO'
 
 load_from = None
 resume = False
+
+default_hooks = dict(
+  timer=dict(type='IterTimerHook'),
+  logger=dict(type='LoggerHook', interval=50, log_metric_by_epoch=False),
+  param_scheduler=dict(type='ParamSchedulerHook'),
+  checkpoint=dict(type='CheckpointHook', interval=5, by_epoch=True),
+)
