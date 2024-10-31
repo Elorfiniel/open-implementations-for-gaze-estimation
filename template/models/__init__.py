@@ -1,3 +1,4 @@
-from .gaze_3d import MPIIGaze_LeNet
+from .gaze_3d import MPIIGaze_LeNet, MPIIGaze_GazeNet
 
-__all__ = ['MPIIGaze_LeNet']
+
+__all__ = ['MPIIGaze_LeNet', 'MPIIGaze_GazeNet']
