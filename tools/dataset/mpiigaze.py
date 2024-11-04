@@ -1,4 +1,4 @@
-from dataset_utils import fetch_dataset_logger, create_data_folder
+from dataset_utils import *
 
 import argparse
 import cv2
@@ -44,6 +44,8 @@ def mpii_data_normalization(image, center, focal_norm, dist_norm, crop_norm, R1,
 
 
 def _ext_normalized_pp_dd(mat, pp_dd_folder):
+  os.makedirs(pp_dd_folder, exist_ok=True)
+
   mat_data, mat_file = mat['data'], mat['filenames']
 
   l_gaze = mat_data['left'][0, 0]['gaze'][0, 0].astype(np.float32)
@@ -71,16 +73,16 @@ def ext_normalized_data(dataset_path: str, opt_folder: str):
 
     _logger.info(f'process data in "{person_folder}"')
     for nf in normalized_files:
-      mat = sio.loadmat(osp.join(person_folder, nf))
-      pp_dd_folder = osp.join(opt_folder, person, osp.splitext(nf)[0])
-      os.makedirs(pp_dd_folder, exist_ok=True)
       _logger.info(f'extract normalized data for ({person}, {osp.splitext(nf)[0]})')
-      _ext_normalized_pp_dd(mat, pp_dd_folder)
+      _ext_normalized_pp_dd(
+        mat=sio.loadmat(osp.join(person_folder, nf)),
+        pp_dd_folder=osp.join(opt_folder, person, osp.splitext(nf)[0]),
+      )
 
   _logger.info(f'extract normalized data: done')
 
 
-def _gen_normalized_pp_dd(date_folder, cam_data, scn_pose, scn_size, pp_dd_folder):
+def _load_annot_pp_dd(date_folder, **kwargs):
   label_file = np.loadtxt(
     fname=osp.join(date_folder, 'annotation.txt'),
     dtype=dict(
@@ -129,6 +131,11 @@ def _gen_normalized_pp_dd(date_folder, cam_data, scn_pose, scn_size, pp_dd_folde
     ndmin=1,
   )
 
+  return label_file
+
+def _gen_normalized_pp_dd(cam_data, scn_pose, scn_size, date_folder, label_file, pp_dd_folder):
+  os.makedirs(pp_dd_folder, exist_ok=True)
+
   cam_mat, cam_dist = cam_data['cameraMatrix'], cam_data['distCoeffs']
   mr, mt = scn_pose['rvects'], scn_pose['tvecs']
   screen_h_mm = scn_size['height_mm'][0, 0]
@@ -140,8 +147,10 @@ def _gen_normalized_pp_dd(date_folder, cam_data, scn_pose, scn_size, pp_dd_folde
   r_gaze, r_img, r_pose = [], [], []
 
   for sample_idx in range(len(label_file)):
+    sample = label_file[sample_idx] # a numpy structured array
+
     img = cv2.imread(osp.join(date_folder, f'{sample_idx+1:04d}.jpg'), cv2.IMREAD_UNCHANGED)
-    pog = np.array(label_file[sample_idx][['gx_px', 'gy_px']].tolist(), dtype=np.float32)
+    pog = np.array(sample[['gx_px', 'gy_px']].tolist(), dtype=np.float32)
 
     tgt_scn = np.array([
       pog[0] / screen_w_px * screen_w_mm,
@@ -151,16 +160,18 @@ def _gen_normalized_pp_dd(date_folder, cam_data, scn_pose, scn_size, pp_dd_folde
     mR = cv2.Rodrigues(mr)[0]
     tgt_cam = np.dot(mR, tgt_scn) + mt.reshape((3, ))
 
-    hr = np.array(label_file[sample_idx][['rvec_x', 'rvec_y', 'rvec_z']].tolist(), dtype=np.float32)
+    hr = np.array(sample[['rvec_x', 'rvec_y', 'rvec_z']].tolist(), dtype=np.float32)
     hR = cv2.Rodrigues(hr.reshape((3, 1)))[0]
-    le = np.array(label_file[sample_idx][['le_x', 'le_y', 'le_z']].tolist(), dtype=np.float32)
-    re = np.array(label_file[sample_idx][['re_x', 're_y', 're_z']].tolist(), dtype=np.float32)
+    le = np.array(sample[['le_x', 'le_y', 'le_z']].tolist(), dtype=np.float32)
+    re = np.array(sample[['re_x', 're_y', 're_z']].tolist(), dtype=np.float32)
 
     leye_result = mpii_data_normalization(img, le, 960, 600, (60, 36), hR, cam_mat)
     warp_l, Kv_l, S_l, R2_l, W_l = leye_result
     reye_result = mpii_data_normalization(img, re, 960, 600, (60, 36), hR, cam_mat)
     warp_r, Kv_r, S_r, R2_r, W_r = reye_result
 
+    # [Revisiting Data Normalization]
+    #   Discard the scaling component `S_x` when calculating gaze and pose vector
     leye_gaze = np.dot(np.dot(S_l, R2_l), tgt_cam - le)
     leye_gaze = leye_gaze / np.linalg.norm(leye_gaze)
     reye_gaze = np.dot(np.dot(S_r, R2_r), tgt_cam - re)
@@ -200,7 +211,8 @@ def gen_normalized_data(dataset_path: str, opt_folder: str):
     person_folder = osp.join(persons_folder, person)
     calib_folder = osp.join(person_folder, 'Calibration')
     dates_folders = os.listdir(person_folder)
-    dates_folders.remove('Calibration')
+    for filename in ['Calibration']:
+      dates_folders.remove(filename)
 
     cam_data = sio.loadmat(osp.join(calib_folder, 'Camera.mat'))
     scn_pose = sio.loadmat(osp.join(calib_folder, 'monitorPose.mat'))
@@ -208,11 +220,15 @@ def gen_normalized_data(dataset_path: str, opt_folder: str):
 
     _logger.info(f'process data in "{person_folder}"')
     for df in dates_folders:
-      date_folder = osp.join(person_folder, df)
-      pp_dd_folder = osp.join(opt_folder, person, df)
-      os.makedirs(pp_dd_folder, exist_ok=True)
       _logger.info(f'generate normalized data for ({person}, {df})')
-      _gen_normalized_pp_dd(date_folder, cam_data, scn_pose, scn_size, pp_dd_folder)
+      _gen_normalized_pp_dd(
+        cam_data, scn_pose, scn_size,
+        date_folder=osp.join(person_folder, df),
+        label_file=_load_annot_pp_dd(
+          osp.join(person_folder, df), pp=person, dd=df,
+        ),
+        pp_dd_folder=osp.join(opt_folder, person, df),
+      )
 
   _logger.info(f'generate normalized data: done')
 
