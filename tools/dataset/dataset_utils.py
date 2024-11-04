@@ -4,7 +4,7 @@ import os
 import os.path as osp
 
 
-__all__ = ['fetch_dataset_logger', 'create_data_folder']
+__all__ = ['fetch_dataset_logger', 'resource_path', 'create_data_folder']
 
 
 _stream_handler = logging.StreamHandler()
@@ -23,8 +23,13 @@ _module_logger.setLevel(logging.INFO)
 
 def fetch_dataset_logger(dataset: str = ''):
   '''Fetch the logger for dataset, creating one if not already exists.'''
-
   return _module_logger.getChild(dataset) if dataset else _module_logger
+
+
+def resource_path(resource: str):
+  '''Build resource path by prepending the resource folder.'''
+  workspace = osp.dirname(osp.dirname(osp.dirname(__file__)))
+  return osp.join(workspace, 'resource', resource)
 
 
 def create_data_folder(dataset: str = ''):
