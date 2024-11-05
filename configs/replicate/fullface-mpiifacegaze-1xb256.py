@@ -20,9 +20,11 @@ base_batch_size = 256
 dataloader = dict(
   dataset=dict(
     transform = [
-      # Note: in reality, you might want to consider data augmentation
+      # Note: in reality, you might want to consider data augmentation because
+      # MPIIFaceGaze is a small dataset (~37.6k samples) for gaze estimation
       #   - For training (eg. RandomAutoContrast, RandomEqualize, ColorJitter)
       #   - For testing (eg. AutoContrast, Equalize)
+      # Tips: use dataset wrapper to transform ipts and tgts at the same time
       dict(type='ToTensor'),
       dict(
         type='Normalize',
