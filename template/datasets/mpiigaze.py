@@ -18,17 +18,17 @@ class MPIIGaze(Dataset):
   def __init__(self, root, train=True, test_pp='p00', eval_subset=False, transform=None):
     '''MPIIGaze Dataset.
 
-    `root`: Root directory of dataset where prepared data for each person
+    `root`: root directory of dataset where prepared data for each person
     is stored, eg. 'data/mpiigaze/normalized-ext'.
 
     `train`: load data for training, otherwise for testing.
 
-    `test_pp`: Person ID for Leave-One-Out test, eg. 'p00'.
+    `test_pp`: person ID for Leave-One-Out test, eg. 'p00'.
 
     `eval_subset`: only use data from eval subset, which contains 3000 samples
     for each person in an accompanying folder of the root directory.
 
-    `transform`: Image transformation.
+    `transform`: image transformation.
     '''
 
     person_indices = [f'p{i:02d}' for i in range(15)]
@@ -62,11 +62,11 @@ class _MPIIGaze_PP(Dataset):
   def __init__(self, root, eval_subset=False, transform=None):
     '''Load data for one person in MPIIGaze dataset.
 
-    `root`: Root directory of data for one person, eg. 'data/mpiigaze/normalized-ext/p00'.
+    `root`: root directory of data for one person, eg. 'data/mpiigaze/normalized-ext/p00'.
 
     `eval_subset`: only use data from eval subset. See also `MPIIGaze`.
 
-    `transform`: Image transformation.
+    `transform`: image transformation.
     '''
 
     self.n_samples = self._load_data(root, eval_subset)
