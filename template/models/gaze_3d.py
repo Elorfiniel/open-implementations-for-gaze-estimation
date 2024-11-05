@@ -124,7 +124,7 @@ class MPIIFaceGaze_FullFace(BaseModel):
     https://arxiv.org/abs/1611.08860
   '''
 
-  def __init__(self, init_cfg=None, loss_cfg=dict(type='L1Loss')):
+  def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
     super(MPIIFaceGaze_FullFace, self).__init__(init_cfg=init_cfg)
 
     pretrained_alexnet = tv.models.alexnet(

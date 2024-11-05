@@ -41,6 +41,9 @@ test_dataloader = dataloader
 
 auto_scale_lr = dict(base_batch_size=base_batch_size, enable=True)
 
+# model settings
+model = dict(loss_cfg=dict(type='L1Loss'))
+
 # optimizer settings
 optimizer = dict(type='Adam', lr=1e-5, betas=(0.90, 0.95))
 optim_wrapper = dict(type='OptimWrapper', optimizer=optimizer)
