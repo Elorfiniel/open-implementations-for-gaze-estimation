@@ -24,6 +24,11 @@ dataloader = dict(
       #   - For training (eg. RandomAutoContrast, RandomEqualize, ColorJitter)
       #   - For testing (eg. AutoContrast, Equalize)
       dict(type='ToTensor'),
+      dict(
+        type='Normalize',
+        mean=(0.485, 0.456, 0.406),
+        std=(0.229, 0.224, 0.225),
+      )
     ],
   ),
   batch_size=base_batch_size,
@@ -46,7 +51,7 @@ param_scheduler = [
     type='StepLR',
     by_epoch=False,
     begin=0,
-    step_size=5000,
+    step_size=2500,
     gamma=0.1,
   ),
 ]
