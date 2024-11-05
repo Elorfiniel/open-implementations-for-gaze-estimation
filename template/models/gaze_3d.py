@@ -85,13 +85,11 @@ class MPIIGaze_GazeNet(BaseModel):
     self.fc_1 = nn.Sequential(
       nn.Linear(in_features=512*4*7, out_features=4096),
       nn.ReLU(inplace=True),
-      nn.Dropout(p=0.5),
     )
 
     self.fc_2 = nn.Sequential(
       nn.Linear(in_features=4096+2, out_features=4096),
       nn.ReLU(inplace=True),
-      nn.Dropout(p=0.5),
       nn.Linear(in_features=4096, out_features=2),
     )
 
@@ -102,6 +100,62 @@ class MPIIGaze_GazeNet(BaseModel):
     feats = self.fc_1(torch.flatten(feats, start_dim=1))
 
     gazes = self.fc_2(torch.cat([feats, ipts['pose']], dim=1))
+
+    if mode == 'loss':
+      loss = self.loss_fn(gazes, tgts['gaze'])
+      return dict(loss=loss)
+
+    if mode == 'predict':
+      return gazes, tgts['gaze']
+
+    return gazes
+
+
+@MODELS.register_module()
+class MPIIFaceGaze_FullFace(BaseModel):
+  '''
+  Bibliography:
+    Zhang, Xucong, Yusuke Sugano, Mario Fritz, and Andreas Bulling.
+    “It's Written All Over Your Face: Full-Face Appearance-Based Gaze Estimation.”
+    In 2017 IEEE Conference on Computer Vision and Pattern Recognition Workshops (CVPRW), 2299-2308, 2017.
+    https://doi.org/10.1109/CVPRW.2017.284.
+
+  Arxiv:
+    https://arxiv.org/abs/1611.08860
+  '''
+
+  def __init__(self, init_cfg=None, loss_cfg=dict(type='L1Loss')):
+    super(MPIIFaceGaze_FullFace, self).__init__(init_cfg=init_cfg)
+
+    pretrained_alexnet = tv.models.alexnet(
+      weights=tv.models.AlexNet_Weights.DEFAULT,
+    )
+    self.conv = pretrained_alexnet.features
+
+    self.sw = nn.Sequential(
+      nn.Conv2d(in_channels=256, out_channels=256, kernel_size=1, stride=1),
+      nn.ReLU(inplace=True),
+      nn.Conv2d(in_channels=256, out_channels=256, kernel_size=1, stride=1),
+      nn.ReLU(inplace=True),
+      nn.Conv2d(in_channels=256, out_channels=1, kernel_size=1, stride=1),
+      nn.ReLU(inplace=True),
+    )
+
+    self.fc = nn.Sequential(
+      nn.Linear(in_features=256*13*13, out_features=4096),
+      nn.ReLU(inplace=True),
+      nn.Linear(in_features=4096, out_features=4096),
+      nn.ReLU(inplace=True),
+      nn.Linear(in_features=4096, out_features=2),
+    )
+
+    self.loss_fn = LOSSES.build(loss_cfg)
+
+  def forward(self, ipts, tgts, mode='tensor'):
+    feats = self.conv(ipts['face'])
+    feats = self.sw(feats) * feats
+
+    gazes = self.fc(torch.flatten(feats, start_dim=1))
 
     if mode == 'loss':
       loss = self.loss_fn(gazes, tgts['gaze'])
