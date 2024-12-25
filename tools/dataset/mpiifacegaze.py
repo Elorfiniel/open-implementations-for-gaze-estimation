@@ -1,4 +1,6 @@
-from dataset_utils import *
+from template.runtime.files import ProjectTree
+from template.runtime.log import runtime_logger
+
 from mpiigaze import mpii_data_normalization
 
 import argparse
@@ -10,7 +12,7 @@ import scipy.io as sio
 import shutil
 
 
-_logger = fetch_dataset_logger('mpiifacegaze')
+_logger = runtime_logger('mpiifacegaze')
 
 
 def load_mpii_face_model(mpii_model_path):
@@ -80,7 +82,8 @@ def _gen_normalized_pp_dd(cam_data, scn_pose, scn_size, date_folder, label_file,
   screen_w_mm = scn_size['width_mm'][0, 0]
   screen_w_px = scn_size['width_pixel'][0, 0]
 
-  face_model = load_mpii_face_model(resource_path('face-models/mpiigaze-generic.mat'))
+  mpii_model_path = ProjectTree.resource_path('face-models/mpiigaze-generic.mat')
+  face_model = load_mpii_face_model(mpii_model_path)
 
   l_gaze, l_img, l_pose = [], [], []
   r_gaze, r_img, r_pose = [], [], []
@@ -220,7 +223,8 @@ def main_procedure(cmdargs: argparse.Namespace):
   dataset_path = osp.abspath(cmdargs.dataset_path)
   _logger.info(f'prepare data for MPIIFaceGaze dataset at "{dataset_path}"')
 
-  data_folder = create_data_folder('mpiifacegaze')
+  data_folder = ProjectTree.data_path('mpiifacegaze')
+  os.makedirs(data_folder, exist_ok=True)
   _logger.info(f'data will be stored in "{data_folder}"')
 
   try:

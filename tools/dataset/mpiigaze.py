@@ -1,4 +1,5 @@
-from dataset_utils import *
+from template.runtime.files import ProjectTree
+from template.runtime.log import runtime_logger
 
 import argparse
 import cv2
@@ -9,7 +10,7 @@ import scipy.io as sio
 import shutil
 
 
-_logger = fetch_dataset_logger('mpiigaze')
+_logger = runtime_logger('mpiigaze')
 
 
 def mpii_data_normalization(image, center, focal_norm, dist_norm, crop_norm, R1, Kc):
@@ -246,7 +247,8 @@ def main_procedure(cmdargs: argparse.Namespace):
   dataset_path = osp.abspath(cmdargs.dataset_path)
   _logger.info(f'prepare data for MPIIGaze dataset at "{dataset_path}"')
 
-  data_folder = create_data_folder('mpiigaze')
+  data_folder = ProjectTree.data_path('mpiigaze')
+  os.makedirs(data_folder, exist_ok=True)
   _logger.info(f'data will be stored in "{data_folder}"')
 
   try:
