@@ -3,14 +3,13 @@ from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from template.registry import DATASETS
+from template.datasets import utils
 
 import cv2
 import numpy as np
 import os
 import os.path as osp
 import torch as torch
-
-import template.datasets.utils as utils
 
 
 @DATASETS.register_module()
