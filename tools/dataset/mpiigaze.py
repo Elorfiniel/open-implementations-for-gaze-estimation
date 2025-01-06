@@ -1,8 +1,12 @@
+from template.datasets.utils import MpiiDataNormalizer
 from template.runtime.files import ProjectTree
 from template.runtime.log import runtime_logger
+from template.runtime.parallel import FunctionalTask, run_parallel
 
 import argparse
+import concurrent.futures as futures
 import cv2
+import h5py
 import numpy as np
 import os
 import os.path as osp
@@ -10,80 +14,50 @@ import scipy.io as sio
 import shutil
 
 
-_logger = runtime_logger('mpiigaze')
+rt_logger = runtime_logger('mpiigaze')
 
 
-def mpii_data_normalization(image, center, focal_norm, dist_norm, crop_norm, R1, Kc):
-  # Configure normalized camera coordinate frame
-  distance = np.linalg.norm(center)
-  scaling = dist_norm / distance
-  Kv = np.array([
-    [focal_norm, 0.0, crop_norm[0] / 2],
-    [0.0, focal_norm, crop_norm[1] / 2],
-    [0.0, 0.0, 1.0],
-  ])
-  S = np.array([
-    [1.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0],
-    [0.0, 0.0, scaling],
-  ])
+class Screen2Camera:
+  def __init__(self, scn_pose: dict, scn_size: dict):
+    self.mr = scn_pose['rvects']
+    self.mt = scn_pose['tvecs']
 
-  # Find axes of normalized camera coordinate frame in camera coordinate frame
-  z_axis = center / np.linalg.norm(center)
-  x_axis_head = R1[:, 0]
-  y_axis = np.cross(z_axis, x_axis_head)
-  y_axis = y_axis / np.linalg.norm(y_axis)
-  x_axis = np.cross(y_axis, z_axis)
-  x_axis = x_axis / np.linalg.norm(x_axis)
-  R2 = np.vstack([x_axis, y_axis, z_axis])
+    self.screen_h_mm = scn_size['height_mm'][0, 0]
+    self.screen_h_px = scn_size['height_pixel'][0, 0]
+    self.screen_w_mm = scn_size['width_mm'][0, 0]
+    self.screen_w_px = scn_size['width_pixel'][0, 0]
 
-  # Calculate perspective transformation (for image warpping)
-  W = np.dot(np.dot(Kv, S), np.dot(R2, np.linalg.inv(Kc)))
-  warp = cv2.warpPerspective(image, W, crop_norm)
+  def load_target(self, pog: np.ndarray):
+    tgt_scn = np.array([
+      pog[0] / self.screen_w_px * self.screen_w_mm,
+      pog[1] / self.screen_h_px * self.screen_h_mm,
+      0.0,
+    ], dtype=np.float32)
+    mR = cv2.Rodrigues(self.mr)[0]
+    tgt_cam = np.dot(mR, tgt_scn) + self.mt.reshape((3, ))
 
-  return warp, Kv, S, R2, W
+    return tgt_cam
 
+class Camera2Normal:
+  def __init__(self, cam_data: dict, normalizer: MpiiDataNormalizer):
+    self.cam_mat = cam_data['cameraMatrix']
+    self.normalizer = normalizer
 
-def _ext_normalized_pp_dd(mat, pp_dd_folder):
-  os.makedirs(pp_dd_folder, exist_ok=True)
+  def _unit_vector(self, v: np.ndarray):
+    return v / np.linalg.norm(v)
 
-  mat_data, mat_file = mat['data'], mat['filenames']
+  def normalize_data(self, look_at, R1, image, tgt):
+    Kv, S, R2 = self.normalizer.normalize_matrices(look_at, R1)
+    warp, W = self.normalizer.warp_image(image, Kv, S, R2, self.cam_mat)
 
-  l_gaze = mat_data['left'][0, 0]['gaze'][0, 0].astype(np.float32)
-  l_img = mat_data['left'][0, 0]['image'][0, 0].astype(np.uint8)
-  l_pose = mat_data['left'][0, 0]['pose'][0, 0].astype(np.float32)
-  r_gaze = mat_data['right'][0, 0]['gaze'][0, 0].astype(np.float32)
-  r_img = mat_data['right'][0, 0]['image'][0, 0].astype(np.uint8)
-  r_pose = mat_data['right'][0, 0]['pose'][0, 0].astype(np.float32)
+    # Revisiting Data Normalization: discard the scaling component `S_x`
+    gaze = self._unit_vector(np.dot(R2, tgt - look_at))
+    pose = self._unit_vector(cv2.Rodrigues(np.dot(R2, R1))[0].reshape((3, )))
 
-  for filename, ndarray in zip(
-    ['l_gaze.npy', 'l_img.npy', 'l_pose.npy', 'r_gaze.npy', 'r_img.npy', 'r_pose.npy'],
-    [l_gaze, l_img, l_pose, r_gaze, r_img, r_pose],
-    # [(N, 3), (N, 36, 60), (N, 3), (N, 3), (N, 36, 60), (N, 3)]
-  ): np.save(osp.join(pp_dd_folder, filename), ndarray)
-
-def ext_normalized_data(dataset_path: str, opt_folder: str):
-  _logger.info(f'extract normalized data from MPIIGaze dataset')
-
-  persons_folder = osp.join(dataset_path, 'Data', 'Normalized')
-  persons = os.listdir(persons_folder)
-
-  for pid, person in enumerate(persons):
-    person_folder = osp.join(persons_folder, person)
-    normalized_files = os.listdir(person_folder)
-
-    _logger.info(f'process data in "{person_folder}"')
-    for nf in normalized_files:
-      _logger.info(f'extract normalized data for ({person}, {osp.splitext(nf)[0]})')
-      _ext_normalized_pp_dd(
-        mat=sio.loadmat(osp.join(person_folder, nf)),
-        pp_dd_folder=osp.join(opt_folder, person, osp.splitext(nf)[0]),
-      )
-
-  _logger.info(f'extract normalized data: done')
+    return warp, gaze, pose
 
 
-def _load_annot_pp_dd(date_folder, **kwargs):
+def load_mpii_annot_pp_dd(date_folder, **kwargs):
   label_file = np.loadtxt(
     fname=osp.join(date_folder, 'annotation.txt'),
     dtype=dict(
@@ -134,130 +108,114 @@ def _load_annot_pp_dd(date_folder, **kwargs):
 
   return label_file
 
-def _gen_normalized_pp_dd(cam_data, scn_pose, scn_size, date_folder, label_file, pp_dd_folder):
-  os.makedirs(pp_dd_folder, exist_ok=True)
+def process_pp_dd(persons_folder, pp, dd, opt_folder):
+  # Load calibration data, such as camera matrix, screen size, etc
+  calib_folder = osp.join(persons_folder, pp, 'Calibration')
+  cam_data = sio.loadmat(osp.join(calib_folder, 'Camera.mat'))
+  scn_pose = sio.loadmat(osp.join(calib_folder, 'monitorPose.mat'))
+  scn_size = sio.loadmat(osp.join(calib_folder, 'screenSize.mat'))
 
-  cam_mat, cam_dist = cam_data['cameraMatrix'], cam_data['distCoeffs']
-  mr, mt = scn_pose['rvects'], scn_pose['tvecs']
-  screen_h_mm = scn_size['height_mm'][0, 0]
-  screen_h_px = scn_size['height_pixel'][0, 0]
-  screen_w_mm = scn_size['width_mm'][0, 0]
-  screen_w_px = scn_size['width_pixel'][0, 0]
+  # Load annotations for current person and date
+  date_folder = osp.join(persons_folder, pp, dd)
+  label_file = load_mpii_annot_pp_dd(date_folder)
 
-  l_gaze, l_img, l_pose = [], [], []
-  r_gaze, r_img, r_pose = [], [], []
+  # Create output folder for current person
+  person_opt_folder = osp.join(opt_folder, pp)
+  os.makedirs(person_opt_folder, exist_ok=True)
 
-  for sample_idx in range(len(label_file)):
-    sample = label_file[sample_idx] # a numpy structured array
+  # Create hdf datasets
+  hdf_file = h5py.File(osp.join(person_opt_folder, f'{dd}.h5'), 'w')
+  leye_img = hdf_file.create_dataset(
+    'leye-img', shape=(len(label_file), 36, 60),
+    dtype=np.uint8, chunks=(1, 36, 60),
+  )
+  leye_gaze = hdf_file.create_dataset(
+    'leye-gaze', shape=(len(label_file), 3),
+    dtype=np.float32, chunks=(1, 3),
+  )
+  leye_pose = hdf_file.create_dataset(
+    'leye-pose', shape=(len(label_file), 3),
+    dtype=np.float32, chunks=(1, 3),
+  )
+  reye_img = hdf_file.create_dataset(
+    'reye-img', shape=(len(label_file), 36, 60),
+    dtype=np.uint8, chunks=(1, 36, 60),
+  )
+  reye_gaze = hdf_file.create_dataset(
+    'reye-gaze', shape=(len(label_file), 3),
+    dtype=np.float32, chunks=(1, 3),
+  )
+  reye_pose = hdf_file.create_dataset(
+    'reye-pose', shape=(len(label_file), 3),
+    dtype=np.float32, chunks=(1, 3),
+  )
 
-    img = cv2.imread(osp.join(date_folder, f'{sample_idx+1:04d}.jpg'), cv2.IMREAD_UNCHANGED)
+  # Process gaze data for current person and date
+  normalizer = MpiiDataNormalizer(960, (60, 36), distance=600)
+  scn2cam = Screen2Camera(scn_pose, scn_size)
+  cam2nor = Camera2Normal(cam_data, normalizer)
+
+  for idx in range(len(label_file)):
+    sample = label_file[idx] # Numpy structured array
+
+    img = cv2.imread(osp.join(date_folder, f'{idx+1:04d}.jpg'), cv2.IMREAD_UNCHANGED)
+
     pog = np.array(sample[['gx_px', 'gy_px']].tolist(), dtype=np.float32)
-
-    tgt_scn = np.array([
-      pog[0] / screen_w_px * screen_w_mm,
-      pog[1] / screen_h_px * screen_h_mm,
-      0.0,
-    ], dtype=np.float32)
-    mR = cv2.Rodrigues(mr)[0]
-    tgt_cam = np.dot(mR, tgt_scn) + mt.reshape((3, ))
+    tgt = scn2cam.load_target(pog)
 
     hr = np.array(sample[['rvec_x', 'rvec_y', 'rvec_z']].tolist(), dtype=np.float32)
     hR = cv2.Rodrigues(hr.reshape((3, 1)))[0]
     le = np.array(sample[['le_x', 'le_y', 'le_z']].tolist(), dtype=np.float32)
     re = np.array(sample[['re_x', 're_y', 're_z']].tolist(), dtype=np.float32)
 
-    leye_result = mpii_data_normalization(img, le, 960, 600, (60, 36), hR, cam_mat)
-    warp_l, Kv_l, S_l, R2_l, W_l = leye_result
-    reye_result = mpii_data_normalization(img, re, 960, 600, (60, 36), hR, cam_mat)
-    warp_r, Kv_r, S_r, R2_r, W_r = reye_result
+    img_l, gaze_l, pose_l = cam2nor.normalize_data(le, hR, img, tgt)
+    img_l = cv2.equalizeHist(cv2.cvtColor(img_l, cv2.COLOR_BGR2GRAY))
+    leye_img[idx] = img_l; leye_gaze[idx] = gaze_l; leye_pose[idx] = pose_l
 
-    # [Revisiting Data Normalization]
-    #   Discard the scaling component `S_x` when calculating gaze and pose vector
-    leye_gaze = np.dot(np.dot(S_l, R2_l), tgt_cam - le)
-    leye_gaze = leye_gaze / np.linalg.norm(leye_gaze)
-    reye_gaze = np.dot(np.dot(S_r, R2_r), tgt_cam - re)
-    reye_gaze = reye_gaze / np.linalg.norm(reye_gaze)
+    img_r, gaze_r, pose_r = cam2nor.normalize_data(re, hR, img, tgt)
+    img_r = cv2.equalizeHist(cv2.cvtColor(img_r, cv2.COLOR_BGR2GRAY))
+    reye_img[idx] = img_r; reye_gaze[idx] = gaze_r; reye_pose[idx] = pose_r
 
-    leye_img = cv2.equalizeHist(cv2.cvtColor(warp_l, cv2.COLOR_BGR2GRAY))
-    reye_img = cv2.equalizeHist(cv2.cvtColor(warp_r, cv2.COLOR_BGR2GRAY))
+  # Close hdf file
+  hdf_file.close()
 
-    leye_pose = np.dot(np.dot(S_l, R2_l), hR)
-    leye_pose = cv2.Rodrigues(leye_pose)[0].reshape((3, ))
-    reye_pose = np.dot(np.dot(S_r, R2_r), hR)
-    reye_pose = cv2.Rodrigues(reye_pose)[0].reshape((3, ))
-
-    l_gaze.append(leye_gaze), l_img.append(leye_img), l_pose.append(leye_pose)
-    r_gaze.append(reye_gaze), r_img.append(reye_img), r_pose.append(reye_pose)
-
-  l_gaze = np.stack(l_gaze, axis=0).astype(np.float32)
-  l_img = np.stack(l_img, axis=0).astype(np.uint8)
-  l_pose = np.stack(l_pose, axis=0).astype(np.float32)
-  r_gaze = np.stack(r_gaze, axis=0).astype(np.float32)
-  r_img = np.stack(r_img, axis=0).astype(np.uint8)
-  r_pose = np.stack(r_pose, axis=0).astype(np.float32)
-
-  for filename, ndarray in zip(
-    ['l_gaze.npy', 'l_img.npy', 'l_pose.npy', 'r_gaze.npy', 'r_img.npy', 'r_pose.npy'],
-    [l_gaze, l_img, l_pose, r_gaze, r_img, r_pose],
-    # [(N, 3), (N, 36, 60), (N, 3), (N, 3), (N, 36, 60), (N, 3)]
-  ): np.save(osp.join(pp_dd_folder, filename), ndarray)
-
-def gen_normalized_data(dataset_path: str, opt_folder: str):
-  _logger.info(f'generate normalized data for MPIIGaze dataset')
-
+def process_tasks(dataset_path, opt_folder):
   persons_folder = osp.join(dataset_path, 'Data', 'Original')
   persons = os.listdir(persons_folder)
 
-  for pid, person in enumerate(persons):
+  functional_tasks = []
+
+  for person in persons:
     person_folder = osp.join(persons_folder, person)
-    calib_folder = osp.join(person_folder, 'Calibration')
     dates_folders = os.listdir(person_folder)
     for filename in ['Calibration']:
       dates_folders.remove(filename)
 
-    cam_data = sio.loadmat(osp.join(calib_folder, 'Camera.mat'))
-    scn_pose = sio.loadmat(osp.join(calib_folder, 'monitorPose.mat'))
-    scn_size = sio.loadmat(osp.join(calib_folder, 'screenSize.mat'))
+    for date in dates_folders:
+      args = (persons_folder, person, date, opt_folder)
+      task = FunctionalTask(process_pp_dd, *args)
+      functional_tasks.append(task)
 
-    _logger.info(f'process data in "{person_folder}"')
-    for df in dates_folders:
-      _logger.info(f'generate normalized data for ({person}, {df})')
-      _gen_normalized_pp_dd(
-        cam_data, scn_pose, scn_size,
-        date_folder=osp.join(person_folder, df),
-        label_file=_load_annot_pp_dd(
-          osp.join(person_folder, df), pp=person, dd=df,
-        ),
-        pp_dd_folder=osp.join(opt_folder, person, df),
-      )
-
-  _logger.info(f'generate normalized data: done')
-
+  return functional_tasks
 
 def copy_evaluation_samples(dataset_path, opt_folder):
-  _logger.info(f'copy annotations of 3000 evaluation samples')
-
   eval_folder = osp.join(dataset_path, 'Evaluation Subset', 'sample list for eye image')
   shutil.copytree(eval_folder, opt_folder, dirs_exist_ok=True)
-
-  _logger.info(f'copy annotations: done')
 
 
 def main_procedure(cmdargs: argparse.Namespace):
   dataset_path = osp.abspath(cmdargs.dataset_path)
-  _logger.info(f'prepare data for MPIIGaze dataset at "{dataset_path}"')
+  rt_logger.info(f'mpiigaze dataset: "{dataset_path}"')
 
   data_folder = ProjectTree.data_path('mpiigaze')
   os.makedirs(data_folder, exist_ok=True)
-  _logger.info(f'data will be stored in "{data_folder}"')
+  rt_logger.info(f'processed data: "{data_folder}"')
 
-  try:
-    ext_normalized_data(dataset_path, osp.join(data_folder, 'normalized-ext'))
-    gen_normalized_data(dataset_path, osp.join(data_folder, 'normalized-gen'))
-    copy_evaluation_samples(dataset_path, osp.join(data_folder, 'evaluation'))
-  except Exception as ex:
-    _logger.error(f'failed to prepare data for MPIIGaze dataset')
-    _logger.error(ex)
+  tasks = process_tasks(dataset_path, osp.join(data_folder, 'normalize'))
+  executor = futures.ProcessPoolExecutor(cmdargs.max_workers)
+  run_parallel(executor, tasks)
+
+  copy_evaluation_samples(dataset_path, osp.join(data_folder, 'evaluation'))
 
 
 
@@ -267,6 +225,10 @@ if __name__ == '__main__':
   parser.add_argument(
     '--dataset-path', type=str, required=True,
     help='Path to the extracted MPIIGaze dataset.',
+  )
+  parser.add_argument(
+    '--max-workers', type=int, default=None,
+    help='Maximum number of processes in the process pool.',
   )
 
   main_procedure(parser.parse_args())

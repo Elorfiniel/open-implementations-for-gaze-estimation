@@ -6,6 +6,7 @@ from template.registry import DATASETS
 from template.datasets import utils
 
 import cv2
+import h5py
 import numpy as np
 import os
 import os.path as osp
@@ -18,7 +19,7 @@ class MPIIGaze(Dataset):
     '''MPIIGaze Dataset.
 
     `root`: root directory of dataset where prepared data for each person
-    is stored, eg. 'data/mpiigaze/normalized-ext'.
+    is stored, eg. 'data/mpiigaze'.
 
     `train`: load data for training, otherwise for testing.
 
@@ -38,14 +39,14 @@ class MPIIGaze(Dataset):
     if train:
       self.data = ConcatDataset([
         _MPIIGaze_PP(
-          root=osp.join(root, train_pp),
+          root=osp.join(root, 'normalize', train_pp),
           eval_subset=eval_subset,
           transform=transform,
         ) for train_pp in person_indices
       ])
     else:
       self.data = _MPIIGaze_PP(
-        root=osp.join(root, test_pp),
+        root=osp.join(root, 'normalize', test_pp),
         eval_subset=eval_subset,
         transform=transform,
       )
@@ -61,7 +62,7 @@ class _MPIIGaze_PP(Dataset):
   def __init__(self, root, eval_subset=False, transform=None):
     '''Load data for one person in MPIIGaze dataset.
 
-    `root`: root directory of data for one person, eg. 'data/mpiigaze/normalized-ext/p00'.
+    `root`: root directory of data for one person, eg. 'data/mpiigaze/normalize/p00'.
 
     `eval_subset`: only use data from eval subset. See also `MPIIGaze`.
 
@@ -98,23 +99,33 @@ class _MPIIGaze_PP(Dataset):
         lines = [line.strip() for line in fp]
         l_eval, r_eval = self._parse_eval_lines(lines)
 
-    dates = sorted(os.listdir(root))
+    hdf_filenames = sorted(os.listdir(root))
 
-    attrs = ['l_gaze', 'l_img', 'l_pose', 'r_gaze', 'r_img', 'r_pose']
-    for attr in attrs:
-      attr_value = [] # a list of loaded ndarrays
-      for dd in dates:
-        data = np.load(osp.join(root, dd, f'{attr}.npy'))
-        if eval_subset:
-          x_eval = l_eval if 'l' in attr else r_eval
-          data = data[x_eval.get(dd, [])]
-        if data.size > 0:
-          attr_value.append(data)
+    self.data = {
+      'leye-img': [],
+      'leye-gaze': [],
+      'leye-pose': [],
+      'reye-img': [],
+      'reye-gaze': [],
+      'reye-pose': [],
+    } # Load all data in memory (~1GB)
 
-      attr_value = np.concatenate(attr_value, axis=0)
-      setattr(self, attr, attr_value)
+    for hdf_filename in hdf_filenames:
+      with h5py.File(osp.join(root, hdf_filename), 'r', swmr=True) as hdf_file:
+        dd = osp.splitext(hdf_filename)[0]
 
-    return len(self.l_img) + len(self.r_img)
+        for key in self.data.keys():
+          value = np.array(hdf_file[key])
+          if eval_subset:
+            x_eval = l_eval if 'l' in key else r_eval
+            value = value[x_eval.get(dd, [])]
+          if value.size > 0:
+            self.data[key].append(value)
+
+    for key, value in self.data.items():
+      self.data[key] = np.concatenate(value, axis=0)
+
+    return len(self.data['leye-img']) + len(self.data['reye-img'])
 
   def _build_transform(self, transform):
     if transform is None:
@@ -133,17 +144,19 @@ class _MPIIGaze_PP(Dataset):
   def __getitem__(self, idx):
     is_left, real_idx = not bool(idx & 1), idx // 2
 
-    gaze = (self.l_gaze if is_left else self.r_gaze)[real_idx]
-    img = (self.l_img if is_left else self.r_img)[real_idx]
-    pose = (self.l_pose if is_left else self.r_pose)[real_idx]
+    prefix = 'leye' if is_left else 'reye'
+
+    img = self.data[f'{prefix}-img'][real_idx]
+    gaze = self.data[f'{prefix}-gaze'][real_idx]
+    pose = self.data[f'{prefix}-pose'][real_idx]
 
     gaze = utils.gaze_3d_2d_v(gaze)
     pose = utils.pose_3d_2d_v(pose)
 
     if not is_left:
-      # mirror reflection: w.r.t. the XoZ plane (or y axis)
-      #   for eye image, it's equivalent to horizontal flip
-      #   for gaze and pose, it's equivalent to negate yaw
+      # Mirror reflection: w.r.t. the XoZ plane (or y axis)
+      #   For eye image, it's equivalent to horizontal flip
+      #   For gaze and pose, it's equivalent to negate yaw
       img = cv2.flip(img, flipCode=1)
       gaze[1], pose[1] = -gaze[1], -pose[1]
 

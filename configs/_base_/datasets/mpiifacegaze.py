@@ -2,7 +2,7 @@
 train_dataloader = dict(
   dataset=dict(
     type='MPIIFaceGaze',
-    root='data/mpiifacegaze/normalized-gen',
+    root='data/mpiifacegaze',
     train=True,
     test_pp='p00',
     transform=dict(type='ToTensor'),
@@ -19,7 +19,7 @@ train_dataloader = dict(
 val_dataloader = dict(
   dataset=dict(
     type='MPIIFaceGaze',
-    root='data/mpiifacegaze/normalized-gen',
+    root='data/mpiifacegaze',
     train=False,
     test_pp='p00',
     transform=dict(type='ToTensor'),
