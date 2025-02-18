@@ -28,18 +28,6 @@ Follow these steps to get started:
     pip install --editable .
     ```
 
-4. Start training or testing, read more about [Tools for Open Gaze Estimation](tools/README.md).
-
-## FAQs
-
-In case of any problem, checkout the following sections first. In case of any other questions, please feel free to open an issue.
-
-### Module Not Found Error
-
-In general, the `template` package should be visible to the Python interpreter. We achieve this by installing the package in development mode. Please make sure the Python interpreter knows where to find the `template` package (consists of files in the `template` folder). If you are using a virtual environment, make sure you've activated the virtual environment before installation.
-
-Alternatively, you can set the `PYTHONPATH` environment variable to include the parent directory of the `template` folder.
-
 ## License
 
 This project is released under the [MIT License](LICENSE).
