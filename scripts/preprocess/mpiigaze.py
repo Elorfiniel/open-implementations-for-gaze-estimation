@@ -1,5 +1,5 @@
 from opengaze.utils import MpiiDataNormalizer
-from opengaze.runtime.files import ProjectTree
+from opengaze.runtime.scripts import ScriptEnv
 from opengaze.runtime.log import runtime_logger
 from opengaze.runtime.parallel import FunctionalTask, run_parallel
 
@@ -207,7 +207,7 @@ def main_procedure(cmdargs: argparse.Namespace):
   dataset_path = osp.abspath(cmdargs.dataset_path)
   rt_logger.info(f'mpiigaze dataset: "{dataset_path}"')
 
-  data_folder = ProjectTree.data_path('mpiigaze')
+  data_folder = ScriptEnv.data_path('mpiigaze')
   os.makedirs(data_folder, exist_ok=True)
   rt_logger.info(f'processed data: "{data_folder}"')
 

@@ -1,5 +1,5 @@
 from opengaze.utils import MpiiDataNormalizer
-from opengaze.runtime.files import ProjectTree
+from opengaze.runtime.scripts import ScriptEnv
 from opengaze.runtime.log import runtime_logger
 from opengaze.runtime.parallel import FunctionalTask, run_parallel
 
@@ -62,7 +62,7 @@ class HeadPoseEstimator:
     self.face_model = self.load_face_model()
 
   def load_face_model(self):
-    mpii_model_path = ProjectTree.resource_path('face-models/mpiigaze-generic.mat')
+    mpii_model_path = ScriptEnv.resource_path('face-models/mpiigaze-generic.mat')
     face_model = sio.loadmat(mpii_model_path)['model'].T
     face_model = face_model.reshape((6, 3)).astype(np.float32)
     return face_model
@@ -213,7 +213,7 @@ def main_procedure(cmdargs: argparse.Namespace):
   dataset_path = osp.abspath(cmdargs.dataset_path)
   rt_logger.info(f'mpiifacegaze dataset: "{dataset_path}"')
 
-  data_folder = ProjectTree.data_path('mpiifacegaze')
+  data_folder = ScriptEnv.data_path('mpiifacegaze')
   os.makedirs(data_folder, exist_ok=True)
   rt_logger.info(f'processed data: "{data_folder}"')
 

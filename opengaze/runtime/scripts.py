@@ -56,6 +56,16 @@ class ScriptEnv:
     os.chdir(ScriptEnv.WORKSPACE)
 
   @staticmethod
+  def resource_path(resource: str):
+    '''Build resource path by prepending the resource folder.'''
+    return osp.join(ScriptEnv.ROOT, 'resource', resource)
+
+  @staticmethod
+  def data_path(dataset: str):
+    '''Build data path by prepending the data folder.'''
+    return osp.join(ScriptEnv.ROOT, 'data', dataset)
+
+  @staticmethod
   def load_config_dict(config_path: str):
     '''Load config dict from config file.'''
     return Config.fromfile(config_path).to_dict()
