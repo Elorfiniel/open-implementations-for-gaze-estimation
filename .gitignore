@@ -17,7 +17,3 @@ runs/*
 *.temp
 *.bck
 *.backup
-
-# ignore log files
-logs/*
-!logs/.gitkeep
