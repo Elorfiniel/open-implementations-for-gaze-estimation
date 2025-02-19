@@ -131,4 +131,4 @@ class _MPIIFaceGaze_PP(Dataset):
     if self.transform:
       img = self.transform(img)
 
-    return dict(face=img, pose=pose), dict(gaze=gaze)
+    return dict(face=img, pose=pose, gaze=gaze)

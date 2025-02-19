@@ -169,4 +169,4 @@ class _MPIIGaze_PP(Dataset):
     if self.transform:
       img = self.transform(img)
 
-    return dict(eyes=img, pose=pose), dict(gaze=gaze)
+    return dict(eyes=img, pose=pose, gaze=gaze)

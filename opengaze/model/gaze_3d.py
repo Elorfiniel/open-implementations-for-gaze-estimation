@@ -8,7 +8,7 @@ import torchvision as tv
 
 
 @MODELS.register_module()
-class MPIIGaze_LeNet(BaseModel):
+class LeNet(BaseModel):
   '''
   Bibliography:
     Zhang, Xucong, Yusuke Sugano, Mario Fritz, and Andreas Bulling.
@@ -16,10 +16,17 @@ class MPIIGaze_LeNet(BaseModel):
 
   ArXiv:
     https://arxiv.org/abs/1504.02863
+
+  Input:
+    - normalized eye patch, shape: (B, 1, 36, 60)
+    - normalized head pose, shape: (B, 2)
+
+  Output:
+    - gaze vector (pitch, yaw), shape: (B, 2)
   '''
 
   def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
-    super(MPIIGaze_LeNet, self).__init__(init_cfg=init_cfg)
+    super(LeNet, self).__init__(init_cfg=init_cfg)
 
     self.conv = nn.Sequential(
       nn.Conv2d(in_channels=1, out_channels=20, kernel_size=5, stride=1),
@@ -37,24 +44,24 @@ class MPIIGaze_LeNet(BaseModel):
 
     self.loss_fn = LOSSES.build(loss_cfg)
 
-  def forward(self, ipts, tgts, mode='tensor'):
-    feats = self.conv(ipts['eyes'])
+  def forward(self, mode='tensor', **data_dict):
+    feats = self.conv(data_dict['eyes'])
     feats = self.fc_1(torch.flatten(feats, start_dim=1))
 
-    gazes = self.fc_2(torch.cat([feats, ipts['pose']], dim=1))
+    gazes = self.fc_2(torch.cat([feats, data_dict['pose']], dim=1))
 
     if mode == 'loss':
-      loss = self.loss_fn(gazes, tgts['gaze'])
+      loss = self.loss_fn(gazes, data_dict['gaze'])
       return dict(loss=loss)
 
     if mode == 'predict':
-      return gazes, tgts['gaze']
+      return gazes, data_dict['gaze']
 
     return gazes
 
 
 @MODELS.register_module()
-class MPIIGaze_GazeNet(BaseModel):
+class GazeNet(BaseModel):
   '''
   Bibliography:
     Zhang, Xucong, Yusuke Sugano, Mario Fritz, and Andreas Bulling.
@@ -62,10 +69,17 @@ class MPIIGaze_GazeNet(BaseModel):
 
   ArXiv:
     https://arxiv.org/abs/1711.09017
+
+  Input:
+    - normalized eye patch, shape: (B, 3, 36, 60)
+    - normalized head pose, shape: (B, 2)
+
+  Ouptput:
+    - gaze vector (pitch, yaw), shape: (B, 2)
   '''
 
   def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
-    super(MPIIGaze_GazeNet, self).__init__(init_cfg=init_cfg)
+    super(GazeNet, self).__init__(init_cfg=init_cfg)
 
     pretrained_vgg16 = tv.models.vgg16(
       weights=tv.models.VGG16_Weights.DEFAULT,
@@ -91,24 +105,24 @@ class MPIIGaze_GazeNet(BaseModel):
 
     self.loss_fn = LOSSES.build(loss_cfg)
 
-  def forward(self, ipts, tgts, mode='tensor'):
-    feats = self.conv(ipts['eyes'])
+  def forward(self, mode='tensor', **data_dict):
+    feats = self.conv(data_dict['eyes'])
     feats = self.fc_1(torch.flatten(feats, start_dim=1))
 
-    gazes = self.fc_2(torch.cat([feats, ipts['pose']], dim=1))
+    gazes = self.fc_2(torch.cat([feats, data_dict['pose']], dim=1))
 
     if mode == 'loss':
-      loss = self.loss_fn(gazes, tgts['gaze'])
+      loss = self.loss_fn(gazes, data_dict['gaze'])
       return dict(loss=loss)
 
     if mode == 'predict':
-      return gazes, tgts['gaze']
+      return gazes, data_dict['gaze']
 
     return gazes
 
 
 @MODELS.register_module()
-class MPIIFaceGaze_FullFace(BaseModel):
+class FullFace(BaseModel):
   '''
   Bibliography:
     Zhang, Xucong, Yusuke Sugano, Mario Fritz, and Andreas Bulling.
@@ -116,10 +130,16 @@ class MPIIFaceGaze_FullFace(BaseModel):
 
   Arxiv:
     https://arxiv.org/abs/1611.08860
+
+  Input:
+    - normalized face patch, shape: (B, 3, 224, 224)
+
+  Output:
+    - gaze vector, shape: (B, 2)
   '''
 
-  def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
-    super(MPIIFaceGaze_FullFace, self).__init__(init_cfg=init_cfg)
+  def __init__(self, init_cfg=None, loss_cfg=dict(type='L1Loss')):
+    super(FullFace, self).__init__(init_cfg=init_cfg)
 
     pretrained_alexnet = tv.models.alexnet(
       weights=tv.models.AlexNet_Weights.DEFAULT,
@@ -145,18 +165,18 @@ class MPIIFaceGaze_FullFace(BaseModel):
 
     self.loss_fn = LOSSES.build(loss_cfg)
 
-  def forward(self, ipts, tgts, mode='tensor'):
-    feats = self.conv(ipts['face'])
+  def forward(self, mode='tensor', **data_dict):
+    feats = self.conv(data_dict['face'])
     feats = self.sw(feats) * feats
 
     gazes = self.fc(torch.flatten(feats, start_dim=1))
 
     if mode == 'loss':
-      loss = self.loss_fn(gazes, tgts['gaze'])
+      loss = self.loss_fn(gazes, data_dict['gaze'])
       return dict(loss=loss)
 
     if mode == 'predict':
-      return gazes, tgts['gaze']
+      return gazes, data_dict['gaze']
 
     return gazes
 
@@ -170,6 +190,12 @@ class XGaze224(BaseModel):
 
   Arxiv:
     https://arxiv.org/abs/2007.15837
+
+  Input:
+    - normalized face patch, shape: (B, 3, 224, 224)
+
+  Output:
+    - gaze vector (pitch, yaw), shape: (B, 2)
   '''
 
   def __init__(self, init_cfg=None, loss_cfg=dict(type='L1Loss')):
