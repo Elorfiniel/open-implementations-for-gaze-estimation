@@ -1,4 +1,5 @@
-from opengaze.runtime.scripts import ScriptEnv, ScriptOptions, str2bool
+from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
+from opengaze.runtime.cmdargs import str2bool
 
 from mmengine.config import Config
 from mmengine.runner import Runner
