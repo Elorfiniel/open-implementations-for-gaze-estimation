@@ -62,7 +62,7 @@ def build_config(opts: argparse.Namespace):
   # Scheduler config
   config['param_scheduler'] = [
     dict(
-      type='LinearLR', by_epoch=False,
+      type='LinearLR', by_epoch=True,
       start_factor=opts.warm_up_ratio,
       begin=0, end=opts.warn_up_steps,
       convert_to_iter_based=True,
