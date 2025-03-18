@@ -63,8 +63,9 @@ def build_config(opts: argparse.Namespace):
   config['param_scheduler'] = [
     dict(
       type='LinearLR', by_epoch=False,
-      start_factor=opts.warm_up_start,
-      begin=0, end=opts.warn_up_step,
+      start_factor=opts.warm_up_ratio,
+      begin=0, end=opts.warn_up_steps,
+      convert_to_iter_based=True,
     ),
     dict(
       type='StepLR', by_epoch=True, begin=0,
@@ -131,12 +132,12 @@ if __name__ == '__main__':
     help='max number of epochs for training.',
   )
   config_group.add_argument(
-    '--warm-up-start', type=float, default=0.01,
-    help='warm up start for learning rate scheduler.',
+    '--warm-up-ratio', type=float, default=0.01,
+    help='warm up ratio for learning rate scheduler.',
   )
   config_group.add_argument(
-    '--warn-up-step', type=int, default=100,
-    help='warn up step for learning rate scheduler.',
+    '--warn-up-steps', type=float, default=0.40,
+    help='warn up steps for learning rate scheduler.',
   )
   config_group.add_argument(
     '--step-size', type=int, default=20,
