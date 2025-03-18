@@ -74,6 +74,9 @@ def build_config(opts: argparse.Namespace):
     ema_hook = dict(type='EMAHook', begin_epoch=opts.ema_epoch)
     config['custom_hooks'].append(ema_hook)
 
+  # Enable automatic scaling of learning rate
+  config['auto_scale_lr'] = dict(enable=True, base_batch_size=opts.batch_size)
+
   return Config(config)
 
 
