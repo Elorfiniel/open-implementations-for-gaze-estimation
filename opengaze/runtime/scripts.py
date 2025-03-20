@@ -3,6 +3,16 @@ from mmengine.config import Config, DictAction
 import argparse
 import os
 import os.path as osp
+import pdb
+import sys
+
+
+def register_exception_hook():
+  '''Register exception hook to enable interactive debugging.'''
+  def exception_hook(type, value, tb):
+    sys.__excepthook__(type, value, tb)
+    pdb.post_mortem(tb)
+  sys.excepthook = exception_hook
 
 
 class ScriptOptions:
@@ -51,9 +61,11 @@ class ScriptEnv:
   WORKSPACE = osp.dirname(osp.dirname(osp.dirname(__file__)))
 
   @staticmethod
-  def unified_runtime_environment():
+  def unified_runtime_environment(post_mortem: bool = False):
     '''Setup a unified runtime environment.'''
     os.chdir(ScriptEnv.WORKSPACE)
+    if post_mortem:
+      register_exception_hook()
 
   @staticmethod
   def resource_path(resource: str):
