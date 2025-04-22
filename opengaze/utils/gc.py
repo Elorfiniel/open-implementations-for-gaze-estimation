@@ -55,7 +55,7 @@ class FaceLandmarks:
   def __exit__(self, exc_type, exc_value, traceback):
     self.destroy()
 
-  def process(self, image: np.ndarray, bgr2rgb: bool = True):
+  def process(self, image: np.ndarray, bgr2rgb: bool = False):
     '''Takes as input an image of shape `(h, w, c)`, then returns
     as output the detected face landmarks of shape `(478, 3)`.
 
