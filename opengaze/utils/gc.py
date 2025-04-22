@@ -91,10 +91,19 @@ class FaceAlignment:
     self.width_expand = width_expand
     self.hw_ratio = hw_ratio
 
-  def _bbox_from_ldmks(self, landmarks: np.ndarray):
+  def _bbox_from_ldmk(self, landmarks: np.ndarray):
     x_min, y_min = np.min(landmarks, axis=0)
     x_max, y_max = np.max(landmarks, axis=0)
     return np.asarray([x_min, y_min, x_max, y_max], dtype=int)
+
+  def _crop_from_bbox(self, image: np.ndarray, crop_w: int, crop_h: int,
+                      x_min: float, y_min: float, x_max: float, y_max: float):
+    src_pts = np.array([(x_min, y_min), (x_max, y_min), (x_min, y_max)], dtype=np.float32)
+    tgt_pts = np.array([(0, 0), (crop_w, 0), (0, crop_h)], dtype=np.float32)
+
+    M = cv2.getAffineTransform(src_pts, tgt_pts)
+
+    return cv2.warpAffine(image, M, (crop_w, crop_h), flags=cv2.INTER_CUBIC)
 
   def _align_angle(self, landmarks: np.ndarray):
     ldmk_reye, ldmk_leye = landmarks[133], landmarks[362]
@@ -122,6 +131,7 @@ class FaceAlignment:
     )
     image_rot = cv2.warpAffine(
       image_pad, M, (image_w + 2 * image_a, image_h + 2 * image_b),
+      flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT,
     )
     ldmks_rot = np.dot(
       np.concatenate([
@@ -139,10 +149,10 @@ class FaceAlignment:
     center = np.array([image_w / 2, image_h / 2])
     metric = max(image_h, image_w) / 2
 
-    x_min, y_min, x_max, y_max = self._bbox_from_ldmks(ldmks_rot)
+    x_min, y_min, x_max, y_max = self._bbox_from_ldmk(ldmks_rot)
     y_max = y_min + x_max - x_min
 
-    face_crop = image_rot[y_min:y_max, x_min:x_max]
+    face_crop = self._crop_from_bbox(image_rot, 224, 224, x_min, y_min, x_max, y_max)
     face_bbox = np.concatenate([
       np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
       np.array([x_max - x_min, y_max - y_min]),
@@ -160,18 +170,18 @@ class FaceAlignment:
       160, 33, 161, 163, 133, 7, 173, 144,
       145, 246, 153, 154, 155, 157, 158, 159,
     ]
-    x_min, y_min, x_max, y_max = self._bbox_from_ldmks(ldmks_rot[ldmk_indices])
+    x_min, y_min, x_max, y_max = self._bbox_from_ldmk(ldmks_rot[ldmk_indices])
     eye_center_x, eye_center_y = ldmks_rot[468]
 
     crop_w = self.width_expand * (x_max - x_min)
     crop_h = self.hw_ratio * crop_w
 
-    x_min = int(eye_center_x - crop_w / 2)
-    x_max = int(eye_center_x + crop_w / 2)
-    y_min = int(eye_center_y - crop_h / 2)
-    y_max = int(eye_center_y + crop_h / 2)
+    x_min = eye_center_x - crop_w / 2
+    x_max = eye_center_x + crop_w / 2
+    y_min = eye_center_y - crop_h / 2
+    y_max = eye_center_y + crop_h / 2
 
-    reye_crop = image_rot[y_min:y_max, x_min:x_max]
+    reye_crop = self._crop_from_bbox(image_rot, 224, 224, x_min, y_min, x_max, y_max)
     reye_bbox = np.concatenate([
       np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
       np.array([x_max - x_min, y_max - y_min]),
@@ -189,18 +199,18 @@ class FaceAlignment:
       384, 385, 386, 387, 388, 390, 263, 362,
       398, 466, 373, 374, 249, 380, 381, 382,
     ]
-    x_min, y_min, x_max, y_max = self._bbox_from_ldmks(ldmks_rot[ldmk_indices])
+    x_min, y_min, x_max, y_max = self._bbox_from_ldmk(ldmks_rot[ldmk_indices])
     eye_center_x, eye_center_y = ldmks_rot[473]
 
     crop_w = self.width_expand * (x_max - x_min)
     crop_h = self.hw_ratio * crop_w
 
-    x_min = int(eye_center_x - crop_w / 2)
-    x_max = int(eye_center_x + crop_w / 2)
-    y_min = int(eye_center_y - crop_h / 2)
-    y_max = int(eye_center_y + crop_h / 2)
+    x_min = eye_center_x - crop_w / 2
+    x_max = eye_center_x + crop_w / 2
+    y_min = eye_center_y - crop_h / 2
+    y_max = eye_center_y + crop_h / 2
 
-    leye_crop = image_rot[y_min:y_max, x_min:x_max]
+    leye_crop = self._crop_from_bbox(image_rot, 224, 224, x_min, y_min, x_max, y_max)
     leye_bbox = np.concatenate([
       np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
       np.array([x_max - x_min, y_max - y_min]),
@@ -235,10 +245,10 @@ class FaceAlignment:
     leye_crop, leye_bbox = self._align_leye(image_rot, ldmks_rot)
 
     # Normalize landmarks wrt the alignment for training
-    norm_ldmks = self._align_ldmks(image_rot, ldmks_rot)
+    ldmks = self._align_ldmks(image_rot, ldmks_rot)
 
     return dict(
-      theta=theta, landmarks=norm_ldmks,
+      theta=theta, ldmks=ldmks,
       face_crop=face_crop, face_bbox=face_bbox,
       reye_crop=reye_crop, reye_bbox=reye_bbox,
       leye_crop=leye_crop, leye_bbox=leye_bbox,
