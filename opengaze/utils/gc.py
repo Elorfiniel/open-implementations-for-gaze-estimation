@@ -76,3 +76,170 @@ class FaceLandmarks:
       return landmarks.astype(np.float32)
 
     return None
+
+
+class FaceAlignment:
+  def __init__(self, width_expand: float = 1.6, hw_ratio: float = 1.0):
+    '''Perform face alignment following the `gaze-point-estimation-2023` project, see also:
+    https://gitee.com/elorfiniel/gaze-point-estimation-2023/blob/master/source/utils/common/facealign.py
+
+    Args:
+      `width_expand`: width expansion factor for eye crops.
+      `hw_ratio`: the ratio of height over width for eye crops.
+    '''
+
+    self.width_expand = width_expand
+    self.hw_ratio = hw_ratio
+
+  def _bbox_from_ldmks(self, landmarks: np.ndarray):
+    x_min, y_min = np.min(landmarks, axis=0)
+    x_max, y_max = np.max(landmarks, axis=0)
+    return np.asarray([x_min, y_min, x_max, y_max], dtype=int)
+
+  def _align_angle(self, landmarks: np.ndarray):
+    ldmk_reye, ldmk_leye = landmarks[133], landmarks[362]
+
+    norm = np.linalg.norm(ldmk_reye - ldmk_leye, ord=2)
+    sin = (ldmk_reye[1] - ldmk_leye[1]) / norm
+    theta = -np.rad2deg(np.arcsin(sin))
+
+    return theta
+
+  def _align_rotate(self, image: np.ndarray, landmarks: np.ndarray, theta: float):
+    image_h, image_w, _ = image.shape
+
+    image_l = 2 * max(image_h, image_w)
+    image_a = int((image_l - image_w) / 2)
+    image_b = int((image_l - image_h) / 2)
+
+    image_pad = cv2.copyMakeBorder(
+      image, image_b, image_b, image_a, image_a,
+      cv2.BORDER_CONSTANT, None, value=(0, 0, 0),
+    )
+    M = cv2.getRotationMatrix2D(
+      center=(image_w / 2 + image_a, image_h / 2 + image_b),
+      angle=theta, scale=1.0,
+    )
+    image_rot = cv2.warpAffine(
+      image_pad, M, (image_w + 2 * image_a, image_h + 2 * image_b),
+    )
+    ldmks_rot = np.dot(
+      np.concatenate([
+        landmarks + np.array([image_a, image_b]),
+        np.ones(shape=(len(landmarks), 1)),
+      ], axis=1),
+      M.T,
+    )
+
+    return image_rot, ldmks_rot
+
+  def _align_face(self, image_rot: np.ndarray, ldmks_rot: np.ndarray):
+    image_h, image_w, _ = image_rot.shape
+
+    center = np.array([image_w / 2, image_h / 2])
+    metric = max(image_h, image_w) / 2
+
+    x_min, y_min, x_max, y_max = self._bbox_from_ldmks(ldmks_rot)
+    y_max = y_min + x_max - x_min
+
+    face_crop = image_rot[y_min:y_max, x_min:x_max]
+    face_bbox = np.concatenate([
+      np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
+      np.array([x_max - x_min, y_max - y_min]),
+    ], axis=0) / metric
+
+    return face_crop, face_bbox
+
+  def _align_reye(self, image_rot: np.ndarray, ldmks_rot: np.ndarray):
+    image_h, image_w, _ = image_rot.shape
+
+    center = np.array([image_w / 2, image_h / 2])
+    metric = max(image_h, image_w) / 2
+
+    ldmk_indices = [
+      160, 33, 161, 163, 133, 7, 173, 144,
+      145, 246, 153, 154, 155, 157, 158, 159,
+    ]
+    x_min, y_min, x_max, y_max = self._bbox_from_ldmks(ldmks_rot[ldmk_indices])
+    eye_center_x, eye_center_y = ldmks_rot[468]
+
+    crop_w = self.width_expand * (x_max - x_min)
+    crop_h = self.hw_ratio * crop_w
+
+    x_min = int(eye_center_x - crop_w / 2)
+    x_max = int(eye_center_x + crop_w / 2)
+    y_min = int(eye_center_y - crop_h / 2)
+    y_max = int(eye_center_y + crop_h / 2)
+
+    reye_crop = image_rot[y_min:y_max, x_min:x_max]
+    reye_bbox = np.concatenate([
+      np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
+      np.array([x_max - x_min, y_max - y_min]),
+    ], axis=0) / metric
+
+    return reye_crop, reye_bbox
+
+  def _align_leye(self, image_rot: np.ndarray, ldmks_rot: np.ndarray):
+    image_h, image_w, _ = image_rot.shape
+
+    center = np.array([image_w / 2, image_h / 2])
+    metric = max(image_h, image_w) / 2
+
+    ldmk_indices = [
+      384, 385, 386, 387, 388, 390, 263, 362,
+      398, 466, 373, 374, 249, 380, 381, 382,
+    ]
+    x_min, y_min, x_max, y_max = self._bbox_from_ldmks(ldmks_rot[ldmk_indices])
+    eye_center_x, eye_center_y = ldmks_rot[473]
+
+    crop_w = self.width_expand * (x_max - x_min)
+    crop_h = self.hw_ratio * crop_w
+
+    x_min = int(eye_center_x - crop_w / 2)
+    x_max = int(eye_center_x + crop_w / 2)
+    y_min = int(eye_center_y - crop_h / 2)
+    y_max = int(eye_center_y + crop_h / 2)
+
+    leye_crop = image_rot[y_min:y_max, x_min:x_max]
+    leye_bbox = np.concatenate([
+      np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
+      np.array([x_max - x_min, y_max - y_min]),
+    ], axis=0) / metric
+
+    return leye_crop, leye_bbox
+
+  def _align_ldmks(self, image_rot: np.ndarray, ldmks_rot: np.ndarray):
+    image_h, image_w, _ = image_rot.shape
+
+    center = np.array([image_w / 2, image_h / 2])
+    metric = max(image_h, image_w) / 2
+
+    return (ldmks_rot - center) / metric
+
+  def align(self, image: np.ndarray, landmarks: np.ndarray):
+    '''Align face image using the detected landmarks.
+
+    Args:
+      `image`: input face image of shape `(h, w, c)`.
+      `landmarks`: detected face landmarks of shape `(478, 3)`.
+    '''
+
+    # Calculate alignment angle from the inner eye cornors
+    theta = self._align_angle(landmarks)
+    # Rotate the image and landmarks by the calculated angle
+    image_rot, ldmks_rot = self._align_rotate(image, landmarks, theta)
+
+    # Crop face and eye crops from the rotated image
+    face_crop, face_bbox = self._align_face(image_rot, ldmks_rot)
+    reye_crop, reye_bbox = self._align_reye(image_rot, ldmks_rot)
+    leye_crop, leye_bbox = self._align_leye(image_rot, ldmks_rot)
+
+    # Normalize landmarks wrt the alignment for training
+    norm_ldmks = self._align_ldmks(image_rot, ldmks_rot)
+
+    return dict(
+      theta=theta, landmarks=norm_ldmks,
+      face_crop=face_crop, face_bbox=face_bbox,
+      reye_crop=reye_crop, reye_bbox=reye_bbox,
+      leye_crop=leye_crop, leye_bbox=leye_bbox,
+    )
