@@ -10,6 +10,10 @@ data/*
 runs/*
 !runs/.gitkeep
 
+# ignore external resources
+resource/*
+!resource/README.md
+
 # ignore temporary scripts and backup files
 *tmp*.py
 *temp*.py
