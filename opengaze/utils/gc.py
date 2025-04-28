@@ -57,7 +57,7 @@ class FaceLandmarks:
 
   def process(self, image: np.ndarray, bgr2rgb: bool = False):
     '''Takes as input an image of shape `(h, w, c)`, then returns
-    as output the detected face landmarks of shape `(478, 3)`.
+    as output the detected face landmarks of shape `(478, 2)`.
 
     Args:
       `image`: input face image of shape `(h, w, c)`.
@@ -106,6 +106,28 @@ class FaceAlignment:
     return cv2.warpAffine(image, M, (crop_w, crop_h), flags=cv2.INTER_CUBIC)
 
   def _align_angle(self, landmarks: np.ndarray):
+    # Warn: Possible inconsistency between frontal-profile and profile-profile view
+    #
+    #   Data normalization was proposed to cancal out the geometric variability
+    #   brought by head pose and user-camera distance, see also:
+    #     "Revisiting Data Normalization for Appearance-Based Gaze Estimation" by Zhang et al.
+    #
+    #   3D Gaze Estimation (incorporated by most articles about gaze estimation):
+    #     1. Normalized camera looks at the origin of head coordinate frame, ie. face center
+    #     2. X-axis of head and camera coordinate frames are parallel, ie. horizontal eyes
+    #     3. Normalized camera is placed at a fixed distance from the origin mentioned above
+    #
+    #   2D Gaze Estimation (implemented in the `gaze-estimation-2023` project):
+    #     1. Similar idea as above, to cancel out the variability brought by face rotation
+    #     2. Inner eye corners are used to align the face with the camera
+    #     3. Gaze labels (PoG) are correctly converted in line with the transformation
+    #
+    #   Note that the pinhole camera model is based on perspective projection, which means two
+    #   objects with the same Y_cam coordinates but different Z_cam coordinates will be projected to
+    #   locations with different Y_img coordinates on the image plane
+    #
+    #   In light of this, data normalization may introduce inconsistency among people with
+    #   different head poses, eg. frontal-profile and profile-profile view
     ldmk_reye, ldmk_leye = landmarks[133], landmarks[362]
 
     norm = np.linalg.norm(ldmk_reye - ldmk_leye, ord=2)
@@ -231,7 +253,7 @@ class FaceAlignment:
 
     Args:
       `image`: input face image of shape `(h, w, c)`.
-      `landmarks`: detected face landmarks of shape `(478, 3)`.
+      `landmarks`: detected face landmarks of shape `(478, 2)`.
     '''
 
     # Calculate alignment angle from the inner eye cornors

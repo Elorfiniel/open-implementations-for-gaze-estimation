@@ -5,3 +5,4 @@ from .euler import (
   pose_3d_2d_a,
 )
 from .mpii import MpiiDataNormalizer
+from .gc import FaceLandmarks, FaceAlignment
