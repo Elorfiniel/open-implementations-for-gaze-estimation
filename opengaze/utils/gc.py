@@ -1,4 +1,5 @@
 from opengaze.runtime.scripts import ScriptEnv
+from opengaze.utils.image import scaled_crop
 
 import cv2
 import mediapipe as mp
@@ -8,7 +9,7 @@ import numpy as np
 class FaceLandmarks:
   def __init__(self, mode: str = 'IMAGE', p_detection: float = 0.8,
                p_presence: float = 0.8, p_tracking: float = 0.8):
-    '''Perform face landmark detection using MediaPipe FaceMesh Solution.
+    '''Perform face landmark detection using MediaPipe Face Landmark Task.
 
     Args:
       `mode`: running mode for face mesh task, either `IMAGE` or `VIDEO`.
@@ -23,7 +24,6 @@ class FaceLandmarks:
     FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
     VisionRunningMode = mp.tasks.vision.RunningMode
 
-    # Note: face_mesh = general_mesh + identity + expression
     model_asset_path = ScriptEnv.resource_path('mediapipe/face_landmarker.task')
     self.options = FaceLandmarkerOptions(
       base_options=BaseOptions(model_asset_path=model_asset_path),
@@ -33,7 +33,6 @@ class FaceLandmarks:
       min_face_presence_confidence=p_presence,
       min_tracking_confidence=p_tracking,
     )
-
     self._landmarker = None
 
   def create(self):
@@ -56,8 +55,8 @@ class FaceLandmarks:
     self.destroy()
 
   def process(self, image: np.ndarray, bgr2rgb: bool = False):
-    '''Takes as input an image of shape `(h, w, c)`, then returns
-    as output the detected face landmarks of shape `(478, 2)`.
+    '''Takes as input an RGB image of shape `(h, w, c)`, then
+    returns the detected face landmarks of shape `(478, 2)`.
 
     Args:
       `image`: input face image of shape `(h, w, c)`.
@@ -68,10 +67,10 @@ class FaceLandmarks:
 
     if bgr2rgb: image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     mp_image = mp.Image(data=image, image_format=mp.ImageFormat.SRGB)
-    detections = self._landmarker.detect(mp_image)
+    results = self._landmarker.detect(mp_image)
 
-    if len(detections.face_landmarks) > 0:
-      landmarks = [[l.x, l.y] for l in detections.face_landmarks[0]]
+    if len(results.face_landmarks) > 0:
+      landmarks = [[l.x, l.y] for l in results.face_landmarks[0]]
       landmarks = np.array(landmarks) * np.array([image_w, image_h])
       return landmarks.astype(np.float32)
 
@@ -95,15 +94,6 @@ class FaceAlignment:
     x_min, y_min = np.min(landmarks, axis=0)
     x_max, y_max = np.max(landmarks, axis=0)
     return np.asarray([x_min, y_min, x_max, y_max], dtype=int)
-
-  def _crop_from_bbox(self, image: np.ndarray, crop_w: int, crop_h: int,
-                      x_min: float, y_min: float, x_max: float, y_max: float):
-    src_pts = np.array([(x_min, y_min), (x_max, y_min), (x_min, y_max)], dtype=np.float32)
-    tgt_pts = np.array([(0, 0), (crop_w, 0), (0, crop_h)], dtype=np.float32)
-
-    M = cv2.getAffineTransform(src_pts, tgt_pts)
-
-    return cv2.warpAffine(image, M, (crop_w, crop_h), flags=cv2.INTER_CUBIC)
 
   def _align_angle(self, landmarks: np.ndarray):
     # Warn: Possible inconsistency between frontal-profile and profile-profile view
@@ -174,7 +164,7 @@ class FaceAlignment:
     x_min, y_min, x_max, y_max = self._bbox_from_ldmk(ldmks_rot)
     y_max = y_min + x_max - x_min
 
-    face_crop = self._crop_from_bbox(image_rot, 224, 224, x_min, y_min, x_max, y_max)
+    face_crop = scaled_crop(image_rot, (x_min, y_min, x_max, y_max), (224, 224))
     face_bbox = np.concatenate([
       np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
       np.array([x_max - x_min, y_max - y_min]),
@@ -203,7 +193,7 @@ class FaceAlignment:
     y_min = eye_center_y - crop_h / 2
     y_max = eye_center_y + crop_h / 2
 
-    reye_crop = self._crop_from_bbox(image_rot, 224, 224, x_min, y_min, x_max, y_max)
+    reye_crop = scaled_crop(image_rot, (x_min, y_min, x_max, y_max), (224, 224))
     reye_bbox = np.concatenate([
       np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
       np.array([x_max - x_min, y_max - y_min]),
@@ -232,7 +222,7 @@ class FaceAlignment:
     y_min = eye_center_y - crop_h / 2
     y_max = eye_center_y + crop_h / 2
 
-    leye_crop = self._crop_from_bbox(image_rot, 224, 224, x_min, y_min, x_max, y_max)
+    leye_crop = scaled_crop(image_rot, (x_min, y_min, x_max, y_max), (224, 224))
     leye_bbox = np.concatenate([
       np.array([(x_min + x_max) / 2, (y_min + y_max) / 2]) - center,
       np.array([x_max - x_min, y_max - y_min]),

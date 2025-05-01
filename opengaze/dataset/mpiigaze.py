@@ -3,7 +3,7 @@ from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from opengaze.registry import DATASETS
-from opengaze.utils import gaze_3d_2d_a, pose_3d_2d_a
+from opengaze.utils.euler import gaze_3d_2d_a, pose_3d_2d_a
 
 import cv2
 import h5py
