@@ -1,4 +1,5 @@
 from opengaze.utils import MpiiDataNormalizer
+from opengaze.utils.euler import PoseEstimator
 from opengaze.runtime.scripts import ScriptEnv
 from opengaze.runtime.log import runtime_logger
 from opengaze.runtime.parallel import FunctionalTask, run_parallel
@@ -55,22 +56,16 @@ class Camera2Normal:
 
     return warp, gaze, pose
 
-class HeadPoseEstimator:
+class HeadPoseEstimator(PoseEstimator):
   def __init__(self, cam_data: dict):
-    self.cam_mat = cam_data['cameraMatrix']
-    self.cam_dist = cam_data['distCoeffs']
-    self.face_model = self.load_face_model()
+    super().__init__(cam_data['cameraMatrix'], cam_data['distCoeffs'])
 
-  def load_face_model(self):
     mpii_model_path = ScriptEnv.resource_path('face-models/mpiigaze-generic.mat')
     face_model = sio.loadmat(mpii_model_path)['model'].T
-    face_model = face_model.reshape((6, 3)).astype(np.float32)
-    return face_model
+    self.face_model = face_model.reshape((6, 3)).astype(np.float32)
 
   def estimate(self, landmarks_2d: np.ndarray):
-    _, rvec, tvec = cv2.solvePnP(self.face_model, landmarks_2d, self.cam_mat, self.cam_dist, flags=cv2.SOLVEPNP_EPNP)
-    _, rvec, tvec = cv2.solvePnP(self.face_model, landmarks_2d, self.cam_mat, self.cam_dist, rvec, tvec, True)
-    return rvec, tvec
+    return super().estimate(self.face_model, landmarks_2d)
 
 
 def load_mpii_annot_pp_dd(date_folder, **kwargs):
