@@ -1,5 +1,5 @@
 from opengaze.utils import MpiiDataNormalizer
-from opengaze.utils.euler import PoseEstimator
+from opengaze.utils.geom import PoseEstimator
 from opengaze.runtime.scripts import ScriptEnv
 from opengaze.runtime.log import runtime_logger
 from opengaze.runtime.parallel import FunctionalTask, run_parallel
