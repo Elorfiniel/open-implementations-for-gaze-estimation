@@ -4,7 +4,7 @@ import numpy as np
 
 class PoseEstimator:
   def __init__(self, cam_mat: np.ndarray, cam_dist: np.ndarray = None):
-    '''Generic pose estimator for 3D objects.
+    '''Pose estimator for 3D objects in camera coordinate frame.
 
     Args:
       `cam_mat`: camera intrinsic parameters of shape `(3, 3)`.

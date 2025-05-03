@@ -16,13 +16,20 @@ class MpiiDataNormalizer:
     self.c = image_size
     self.d = distance
 
-  def normalize_matrices(self, look_at, R1):
+  def normalize_matrices(self, look_at, R1, Kc):
     '''Calculate matrices used in data normalization.
 
     Args:
       `look_at`: 3d location of the looked-at object (eg. eye center).
       `R1`: transistion matrix (original camera -> world), such that the three columns
       correspond to the x, y, z axes of the world in the camera coordinate frame.
+      `Kc`: intrinsic parameters of the original camera.
+
+    Return:
+      `Kv`: intrinsic parameters of the normalized camera.
+      `S`: scaling matrix for image warping.
+      `R2`: transistion matrix (normalized camera -> original camera).
+      `W`: perspective transformation for image warping.
     '''
 
     distance = np.linalg.norm(look_at)
@@ -48,21 +55,17 @@ class MpiiDataNormalizer:
     x_axis = x_axis / np.linalg.norm(x_axis)
     R2 = np.vstack([x_axis, y_axis, z_axis])
 
-    return Kv, S, R2
+    # Calculate perspective transformation for image warping
+    W = np.dot(np.dot(Kv, S), np.dot(R2, np.linalg.inv(Kc)))
 
-  def warp_image(self, image, Kv, S, R2, Kc):
+    return Kv, S, R2, W
+
+  def warp_image(self, image, W):
     '''Warp to normalized image with perspective transformation.
 
     Args:
       `image`: image taken by the original camera.
-      `Kv`: intrinsic parameters of the normalized camera.
-      `S`: scaling matrix for image warping.
-      `R2`: transistion matrix (normalized camera -> original camera).
-      `Kc`: intrinsic parameters of the original camera.
+      `W`: perspective transformation for image warping.
     '''
 
-    # Calculate perspective transformation for image warping
-    W = np.dot(np.dot(Kv, S), np.dot(R2, np.linalg.inv(Kc)))
-    warped = cv2.warpPerspective(image, W, self.c)
-
-    return warped, W
+    return cv2.warpPerspective(image, W, self.c)

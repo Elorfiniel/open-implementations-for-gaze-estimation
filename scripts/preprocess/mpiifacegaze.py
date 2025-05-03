@@ -47,8 +47,8 @@ class Camera2Normal:
     return v / np.linalg.norm(v)
 
   def normalize_data(self, look_at, R1, image, tgt):
-    Kv, S, R2 = self.normalizer.normalize_matrices(look_at, R1)
-    warp, W = self.normalizer.warp_image(image, Kv, S, R2, self.cam_mat)
+    Kv, S, R2, W = self.normalizer.normalize_matrices(look_at, R1, self.cam_mat)
+    warp = self.normalizer.warp_image(image, W)
 
     # Revisiting Data Normalization: discard the scaling component `S_x`
     gaze = self._unit_vector(np.dot(R2, tgt - look_at))
