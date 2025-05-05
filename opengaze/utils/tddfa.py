@@ -230,6 +230,10 @@ class _RotaryNormalizer(PoseEstimator):
   # determine the depth of the face in the normalized image
   BFM_ORIGIN = np.array([0.0, 0.0, 74.849265625], dtype=np.float32)
 
+  # Center of image crop in canonical coordinate frame, used to
+  # determine the center of the normalized image
+  IMG_CENTER = np.array([0.0, 0.0, 0.0], dtype=np.float32)
+
   def _decompose_pose(self, rvec: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     raise NotImplementedError('Subclass must implement this method.')
 
@@ -258,7 +262,7 @@ class _RotaryNormalizer(PoseEstimator):
 
     # Center of the canonical mean face in camera coordinate frame
     fc_2d, _ = cv2.projectPoints(
-      np.zeros((1, 3), dtype=np.float32),
+      self.IMG_CENTER.reshape((1, 3)),
       rvec, tvec, self.cam_mat, self.cam_dist,
     )
     fc_2d = fc_2d.reshape((2, ))
