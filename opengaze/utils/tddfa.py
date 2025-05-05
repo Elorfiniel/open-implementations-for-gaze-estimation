@@ -1,4 +1,7 @@
+from scipy.spatial.transform import Rotation
+
 from opengaze.runtime.scripts import ScriptEnv
+from opengaze.utils.geom import PoseEstimator
 from opengaze.utils.image import scaled_crop
 
 import cv2
@@ -185,9 +188,9 @@ class SparseFaceLandmarks:
     x_min, y_min, z_min = np.min(mean.reshape((68, 3)), axis=0)
     x_max, y_max, z_max = np.max(mean.reshape((68, 3)), axis=0)
 
-    ldmks_3d[0, :] = +1e-3 * (ldmks_3d[0, :] - (x_min + x_max) / 2)
-    ldmks_3d[1, :] = -1e-3 * (ldmks_3d[1, :] - (y_min + y_max) / 2)
-    ldmks_3d[2, :] = -1e-3 * (ldmks_3d[2, :] - (z_min + z_max) / 2)
+    ldmks_3d[0, :] = +1e-3 * (ldmks_3d[0, :] - 0.5 * (x_min + x_max))
+    ldmks_3d[1, :] = -1e-3 * (ldmks_3d[1, :] - 0.5 * (y_min + y_max))
+    ldmks_3d[2, :] = -1e-3 * (ldmks_3d[2, :] - 0.5 * (z_min + z_max))
 
     return ldmks_3d.T, ldmks_2d.T
 
@@ -213,4 +216,84 @@ class SparseFaceLandmarks:
     param = self._run_tddfa_session(face_crop)
     ldmks_3d, ldmks_2d = self._face_landmarks(face_bbox, param)
 
-    return ldmks_3d, ldmks_2d
+    return ldmks_3d, ldmks_2d # Shape: (68, 3), (68, 2)
+
+
+class GenericDataNormalizer(PoseEstimator):
+
+  IMAEG_SIZE = (256, 256) # Size (w, h) of the normalized image
+  DEPTH_NORM = 480.0  # Depth (z) normalization factor for face
+
+  # Center of BFM model in canonical coordinate frame, used to
+  # determine the depth of the face in the normalized image
+  BFM_ORIGIN = np.array([0.0, 0.0, 74.849265625], dtype=np.float32)
+
+  def normalize_matrices(self, ldmks_3d: np.ndarray, ldmks_2d: np.ndarray):
+    '''Calculate matrices used in generic data normalization.
+
+    Args:
+      `ldmks_3d`: the detected 3D face landmarks of shape `(68, 3)`.
+      `ldmks_2d`: the detected 2D face landmarks of shape `(68, 2)`.
+
+    Return:
+      `R2`: transistion matrix (normalized camera -> original camera).
+      `W`: perspective transformation for image warping.
+      `W_face`: transformation to scale crop face region.
+    '''
+
+    # Note that `rvec` and `tvec` together describe the coordinate transformation
+    # from the world to the camera, ie. `X_cam = R @ X_world + T`
+    rvec, tvec = self.estimate(ldmks_3d, ldmks_2d)
+
+    # Decomposition: X_cam = R_yaw @ R_pitch @ R_roll @ X_head + T
+    rotation = Rotation.from_rotvec(rvec.reshape((3, )), degrees=False)
+    roll, pitch, yaw = rotation.as_euler('ZXY', degrees=False)
+    R_roll = Rotation.from_euler('ZXY', [roll, 0, 0]).as_matrix()
+    # Normalization: X_cam' = R @ R_roll.T @ R.T @ X_cam
+    R1 = rotation.as_matrix()
+    R2 = R1 @ R_roll.T @ R1.T
+
+    # Calculate perspective transformation for image warping
+    W = np.dot(self.cam_mat, np.dot(R2, np.linalg.inv(self.cam_mat)))
+
+    # Center of the canonical mean face in camera coordinate frame
+    fc_2d, _ = cv2.projectPoints(
+      np.zeros((1, 3), dtype=np.float32),
+      rvec, tvec, self.cam_mat, self.cam_dist,
+    )
+    fc_2d = fc_2d.reshape((2, ))
+    # Scale crop face region after perspective transformation
+    crop_center = np.dot(W, np.array([fc_2d[0], fc_2d[1], 1.0]))
+    crop_center = crop_center / crop_center[2]
+    head_center = R2 @ (R1 @ self.BFM_ORIGIN + tvec.reshape((3, )))
+    # Build affine transformation to scale crop face region
+    scaling = self.DEPTH_NORM / head_center[-1]
+    half_x = scaling * (self.IMAEG_SIZE[0] / 2)
+    half_y = scaling * (self.IMAEG_SIZE[1] / 2)
+    src_pts = np.array([
+      [crop_center[0] - half_x, crop_center[1] - half_y],
+      [crop_center[0] + half_x, crop_center[1] - half_y],
+      [crop_center[0] - half_x, crop_center[1] + half_y],
+    ], dtype=np.float32)
+    tgt_pts = np.array([
+      [0.0, 0.0],
+      [self.IMAEG_SIZE[0], 0.0],
+      [0.0, self.IMAEG_SIZE[1]],
+    ], dtype=np.float32)
+    W_face = np.concatenate([
+      cv2.getAffineTransform(src_pts, tgt_pts),
+      np.array([[0.0, 0.0, 1.0]], dtype=np.float32),
+    ], axis=0)
+
+    return R2, W, W_face
+
+  def warp_image(self, image: np.ndarray, W: np.ndarray, W_face: np.ndarray):
+    '''Warp to normalized image with perspective transformation.
+
+    Args:
+      `image`: face image of shape `(h, w, c)`.
+      `W`: perspective transformation for image warping.
+      `W_face`: transformation to scale crop face region.
+    '''
+
+    return cv2.warpPerspective(image, np.dot(W_face, W), self.IMAEG_SIZE)
