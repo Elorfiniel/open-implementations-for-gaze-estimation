@@ -1,5 +1,4 @@
 from scipy.spatial.transform import Rotation
-from typing import Tuple
 
 from opengaze.runtime.scripts import ScriptEnv
 from opengaze.utils.geom import PoseEstimator
@@ -220,11 +219,22 @@ class SparseFaceLandmarks:
     return ldmks_3d, ldmks_2d # Shape: (68, 3), (68, 2)
 
 
-class _RotaryNormalizer(PoseEstimator):
-  '''Data normalizer based on the decomposition of head pose.'''
+class TddfaDataNormalizer(PoseEstimator):
+  '''Data normalizer that cancels out the variability of head rotation
+  along the global z-axis of the head coordinate frame. This normalizer
+  preserves the head rotation along the global x-axis and y-axis.
+
+  The normalization performed is equivalent to the rotation around the
+  image center, followed by translation and scaling to crop and align
+  the face region. Gaze labels in the original camera coordinate frame,
+  such as PoG and gaze direction, should be transformed accordingly,
+  ie. left multiplied by `R2`, to obtain the groundtruth labels in the
+  normalized coordinate frame (x-axis points to the right, y-axis points
+  downwards, z-axis points from the camera to the face).
+  '''
 
   IMAEG_SIZE = (256, 256) # Size (w, h) of the normalized image
-  DEPTH_NORM = 480.0  # Depth (z) normalization factor for face
+  DEPTH_NORM = 512.0  # Depth (z) normalization factor for face
 
   # Center of BFM model in canonical coordinate frame, used to
   # determine the depth of the face in the normalized image
@@ -232,10 +242,7 @@ class _RotaryNormalizer(PoseEstimator):
 
   # Center of image crop in canonical coordinate frame, used to
   # determine the center of the normalized image
-  IMG_CENTER = np.array([0.0, 0.0, 0.0], dtype=np.float32)
-
-  def _decompose_pose(self, rvec: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    raise NotImplementedError('Subclass must implement this method.')
+  IMG_CENTER = np.array([0.0, -16.938069824, 0.0], dtype=np.float32)
 
   def normalize_matrices(self, ldmks_3d: np.ndarray, ldmks_2d: np.ndarray):
     '''Calculate matrices used in data normalization.
@@ -254,8 +261,13 @@ class _RotaryNormalizer(PoseEstimator):
     # from the world to the camera, ie. `X_cam = R @ X_world + T`
     rvec, tvec = self.estimate(ldmks_3d, ldmks_2d)
 
-    # Find rotary decomposition of head pose
-    R1, R2 = self._decompose_pose(rvec)
+    # Decomposition: X_cam = R_roll @ R_yaw @ R_pitch @ X_head + T
+    rotation = Rotation.from_rotvec(rvec.reshape((3, )), degrees=False)
+    pitch, yaw, roll = rotation.as_euler('xyz', degrees=False)
+    R_roll = Rotation.from_euler('xyz', [0, 0, roll]).as_matrix()
+    # Normalization: X_cam' = R_roll.T @ X_cam
+    R1 = rotation.as_matrix()
+    R2 = R_roll.T
 
     # Calculate perspective transformation for image warping
     W = np.dot(self.cam_mat, np.dot(R2, np.linalg.inv(self.cam_mat)))
@@ -301,37 +313,3 @@ class _RotaryNormalizer(PoseEstimator):
     '''
 
     return cv2.warpPerspective(image, np.dot(W_face, W), self.IMAEG_SIZE)
-
-
-class LzRotaryNormalizer(_RotaryNormalizer):
-  '''Data normalizer that cancels out the variability of head rotation
-  along the local z-axis of the head coordinate frame. This normalizer
-  preserves the head rotation along the local x-axis and y-axis.
-  '''
-
-  def _decompose_pose(self, rvec: np.ndarray):
-    # Decomposition: X_cam = R_yaw @ R_pitch @ R_roll @ X_head + T
-    rotation = Rotation.from_rotvec(rvec.reshape((3, )), degrees=False)
-    roll, pitch, yaw = rotation.as_euler('ZXY', degrees=False)
-    R_roll = Rotation.from_euler('ZXY', [roll, 0, 0]).as_matrix()
-    # Normalization: X_cam' = R @ R_roll.T @ R.T @ X_cam
-    R1 = rotation.as_matrix()
-    R2 = R1 @ R_roll.T @ R1.T
-    return R1, R2
-
-
-class GzRotaryNormalizer(_RotaryNormalizer):
-  '''Data normalizer that cancels out the variability of head rotation
-  along the global z-axis of the head coordinate frame. This normalizer
-  preserves the head rotation along the global x-axis and y-axis.
-  '''
-
-  def _decompose_pose(self, rvec: np.ndarray):
-    # Decomposition: X_cam = R_roll @ R_yaw @ R_pitch @ X_head + T
-    rotation = Rotation.from_rotvec(rvec.reshape((3, )), degrees=False)
-    pitch, yaw, roll = rotation.as_euler('xyz', degrees=False)
-    R_roll = Rotation.from_euler('xyz', [0, 0, roll]).as_matrix()
-    # Normalization: X_cam' = R_roll.T @ X_cam
-    R1 = rotation.as_matrix()
-    R2 = R_roll.T
-    return R1, R2
