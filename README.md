@@ -22,11 +22,13 @@ Follow these steps to get started:
     pip install -r requirements.txt
     ```
 
-3. Install the `template` package in development mode.
+3. Install the `opengaze` package in development mode.
 
     ```shell
     pip install --editable .
     ```
+
+4. Download external resources following these [instructions](resource/README.md).
 
 ## License
 
