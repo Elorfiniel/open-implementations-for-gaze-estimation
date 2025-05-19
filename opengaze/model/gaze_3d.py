@@ -215,13 +215,13 @@ class XGaze224(BaseModel):
   def forward(self, mode='tensor', **data_dict):
     feats = self.conv(data_dict['face'])
     feats = torch.flatten(feats, start_dim=1)
-    feats = self.fc(feats)
+    gazes = self.fc(feats)
 
     if mode == 'loss':
-      loss = self.loss_fn(feats, data_dict['gaze'])
+      loss = self.loss_fn(gazes, data_dict['gaze'])
       return dict(loss=loss)
 
     if mode == 'predict':
-      return feats, data_dict['gaze']
+      return gazes, data_dict['gaze']
 
-    return feats
+    return gazes
