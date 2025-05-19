@@ -69,6 +69,11 @@ def process_subject(subjects_folder, subject, opt_folder):
 
   # Create hdf datasets
   hdf_file = h5py.File(osp.join(subject_opt_folder, f'annot.h5'), 'w')
+  name = hdf_file.create_dataset(
+    'name', shape=len(valid_labels),
+    dtype=h5py.string_dtype(length=32),
+    chunks=1, maxshape=len(valid_labels),
+  )
   gaze = hdf_file.create_dataset(
     'gaze', shape=(len(valid_labels), 2),
     dtype=np.float32, chunks=(1, 2),
@@ -126,6 +131,7 @@ def process_subject(subjects_folder, subject, opt_folder):
         align_dict['leye_crop'],
         [cv2.IMWRITE_JPEG_QUALITY, 100],
       )
+      name[idx] = sample['image']
       gaze[idx] = rotate_vector(pog, -align_dict['theta'])
       bbox[idx] = np.concatenate([
         align_dict['face_bbox'],
