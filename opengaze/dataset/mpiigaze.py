@@ -1,8 +1,8 @@
-from mmengine.dataset import Compose
 from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from opengaze.registry import DATASETS
+from opengaze.utils.dataset import build_image_transform
 from opengaze.utils.euler import gaze_3d_2d_a, pose_3d_2d_a
 
 import cv2
@@ -70,7 +70,7 @@ class _MPIIGaze_PP(Dataset):
     '''
 
     self.n_samples = self._load_data(root, eval_subset)
-    self.transform = self._build_transform(transform)
+    self.transform = build_image_transform(transform)
 
   def _parse_eval_lines(self, lines):
     l_eval, r_eval = dict(), dict() # left vs. right
@@ -126,17 +126,6 @@ class _MPIIGaze_PP(Dataset):
       self.data[key] = np.concatenate(value, axis=0)
 
     return len(self.data['leye-img']) + len(self.data['reye-img'])
-
-  def _build_transform(self, transform):
-    if transform is None:
-      transform = dict(type='ToTensor')
-
-    if isinstance(transform, dict):
-      transform = [transform]
-    if isinstance(transform, (list, tuple)):
-      transform = Compose(transform)
-
-    return transform
 
   def __len__(self):
     return self.n_samples

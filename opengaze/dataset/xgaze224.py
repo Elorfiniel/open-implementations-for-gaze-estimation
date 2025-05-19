@@ -1,8 +1,8 @@
-from mmengine.dataset import Compose
 from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from opengaze.registry import DATASETS
+from opengaze.utils.dataset import build_image_transform
 
 import h5py
 import numpy as np
@@ -65,28 +65,7 @@ class XGaze224Subject(Dataset):
     self.hdf = h5py.File(hdf_path, 'r', swmr=True)
 
     self.n_samples = self.hdf['frame_index'].size
-    self.transform = self.build_transform(transform)
-
-  def build_transform(self, transform=None):
-    '''Build image transformation pipeline.
-
-    Args:
-      `transform`: image transformation, which can take the following types:
-        - None: use default transform pipeline (i.e. ToTensor).
-        - callable: returned as-is.
-        - dict: a config dict supported by mmengine.
-        - list: a list of aforementioned dict.
-    '''
-
-    if transform is None:
-      transform = dict(type='ToTensor')
-
-    if isinstance(transform, dict):
-      transform = [transform]
-    if isinstance(transform, (list, tuple)):
-      transform = Compose(transform)
-
-    return transform
+    self.transform = build_image_transform(transform)
 
   def __len__(self):
     return self.n_samples
