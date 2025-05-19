@@ -91,6 +91,13 @@ class _MPIIFaceGaze_PP(Dataset):
 
     return self.cumulative_sizes[-1]
 
+  def _load_crop(self, image_path):
+    crop = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    crop = Image.fromarray(crop, mode='RGB')
+    if self.transform:
+      crop = self.transform(crop)
+    return crop
+
   def __len__(self):
     return self.n_samples
 
@@ -101,9 +108,8 @@ class _MPIIFaceGaze_PP(Dataset):
     else:
       sample_idx = idx - self.cumulative_sizes[date_idx - 1]
 
-    img = cv2.imread(
+    face = self._load_crop(
       osp.join(self.root, self.dates[date_idx], f'{sample_idx:04d}.jpg'),
-      cv2.IMREAD_UNCHANGED,
     )
     gaze = self.data['face-gaze'][date_idx][sample_idx]
     pose = self.data['face-pose'][date_idx][sample_idx]
@@ -116,8 +122,4 @@ class _MPIIFaceGaze_PP(Dataset):
     gaze = torch.tensor(gaze, dtype=torch.float32)
     pose = torch.tensor(pose, dtype=torch.float32)
 
-    img = Image.fromarray(img, mode='RGB')
-    if self.transform:
-      img = self.transform(img)
-
-    return dict(face=img, pose=pose, gaze=gaze)
+    return dict(face=face, pose=pose, gaze=gaze)

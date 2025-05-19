@@ -64,7 +64,7 @@ class XGaze224Subject(Dataset):
     hdf_path = osp.join(root, f'subject{subject}.h5')
     self.hdf = h5py.File(hdf_path, 'r', swmr=True)
 
-    self.n_samples = self.hdf['frame_index'].size
+    self.n_samples = self.hdf['frame_index'].len()
     self.transform = build_image_transform(transform)
 
   def __len__(self):
