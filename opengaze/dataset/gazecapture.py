@@ -1,0 +1,111 @@
+from PIL import Image
+from torch.utils.data import Dataset, ConcatDataset
+
+from opengaze.registry import DATASETS
+from opengaze.utils.dataset import build_image_transform
+
+import cv2
+import h5py
+import json
+import numpy as np
+import os
+import os.path as osp
+import torch
+
+
+@DATASETS.register_module()
+class GazeCapture(Dataset):
+  def __init__(self, root: str, split: str, devices: list, transform=None):
+    '''GazeCapture dataset.
+
+    Args:
+      `root`: root directory of the dataset where prepared data for each
+      subject is stored, eg. 'data/gazecapture'.
+
+      `split`: dataset split, select from `['train', 'val', 'test']`.
+
+      `devices`: list of capture devices.
+
+      `transform`: image transformation.
+
+    Devices used to collect GazeCapture dataset include:
+      - 'iPad 2', 'iPad 3', 'iPad 4', 'iPad Air', 'iPad Air 2', 'iPad Mini', 'iPad Pro'
+      - 'iPhone 4S', 'iPhone 5', 'iPhone 5C', 'iPhone 5S'
+      - 'iPhone 6', 'iPhone 6 Plus', 'iPhone 6s', 'iPhone 6s Plus'
+    '''
+
+    super(GazeCapture, self).__init__()
+
+    subject_folders = [f for f in os.listdir(root) if osp.isdir(osp.join(root, f))]
+
+    subjects = [] # Load subjects captured by devices from dataset split
+    for subject_folder in subject_folders:
+      metadata_file = osp.join(root, subject_folder, 'meta.json')
+      with open(metadata_file, 'r') as file:
+        metadata = json.load(file)
+      if metadata['split'] == split and metadata['device'] in devices:
+        subjects.append(subject_folder)
+
+    self.data = ConcatDataset([
+      GazeCaptureSubject(root, subject, transform)
+      for subject in subjects
+    ])
+
+  def __len__(self):
+    return len(self.data)
+
+  def __getitem__(self, idx):
+    return self.data[idx]
+
+
+@DATASETS.register_module()
+class GazeCaptureSubject(Dataset):
+  def __init__(self, root: str, subject: str, transform=None):
+    '''GazeCapture dataset for each subject.
+
+    Args:
+      `root`: root directory of the dataset where prepared data for each
+      subject is stored, eg. 'data/gazecapture'.
+
+      `subject`: subject ID (eg. '00002') to load.
+
+      `transform`: image transformation.
+    '''
+
+    super(GazeCaptureSubject, self).__init__()
+
+    self.root = root
+    self.subject = subject
+
+    hdf_path = osp.join(root, subject, 'annot.h5')
+    self.hdf = h5py.File(hdf_path, 'r', swmr=True)
+
+    self.ds = [d for d in self.hdf.keys() if d != 'name']
+
+    self.n_samples = self.hdf['name'].len()
+    self.transform = build_image_transform(transform)
+
+  def _load_crop(self, image_path):
+    crop = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    crop = Image.fromarray(crop, mode='RGB')
+    if self.transform:
+      crop = self.transform(crop)
+    return crop
+
+  def __len__(self):
+    return self.n_samples
+
+  def __getitem__(self, idx):
+    image_name = self.hdf['name'].asstr()[idx]
+
+    face = self._load_crop(osp.join(self.root, self.subject, 'face', image_name))
+    reye = self._load_crop(osp.join(self.root, self.subject, 'reye', image_name))
+    leye = self._load_crop(osp.join(self.root, self.subject, 'leye', image_name))
+
+    data_dict = dict(face=face, reye=reye, leye=leye)
+    for dname in self.ds:
+      data = np.array(self.hdf[dname][idx])
+      data = torch.tensor(data, dtype=torch.float32)
+      data_dict[dname] = data
+
+    return data_dict
