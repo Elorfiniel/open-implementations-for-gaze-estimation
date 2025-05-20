@@ -4,6 +4,7 @@ from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
 
 from mmengine.config import Config
 from mmengine.runner import Runner
+from torchvision.transforms import functional, ColorJitter
 
 import argparse
 import numpy as np
@@ -11,28 +12,60 @@ import torch
 
 
 @TRANSFORMS.register_module()
-class ITrackerMakeGrid(BaseTransform):
-  def __init__(self, grid_size: int = 25):
-    self.grid_size = grid_size
+class ITrackerPlusMakeKpts(BaseTransform):
+  def transform(self, results):
+    results['kpts'] = torch.cat([
+      results['bbox'][:4],  # Face bbox
+      results['ldmk'][468], # Reye center
+      results['ldmk'][473], # Leye center
+    ], dim=0)
+
+    return results
+
+@TRANSFORMS.register_module()
+class ITrackerPlusColorJitter(BaseTransform):
+  def __init__(self, b: float = 0.0, c: float = 0.0, s: float = 0.0, h: float = 0.0):
+    color_jitter = ColorJitter(brightness=b, contrast=c, saturation=s, hue=h)
+
+    self.b = color_jitter.brightness
+    self.c = color_jitter.contrast
+    self.s = color_jitter.saturation
+    self.h = color_jitter.hue
+
+  def _apply_color_jitter(self, image, params):
+    fn_idx, b, c, s, h = params
+
+    for idx in fn_idx:
+      if idx == 0 and b is not None:
+        image = functional.adjust_brightness(image, b)
+      elif idx == 1 and c is not None:
+        image = functional.adjust_contrast(image, c)
+      elif idx == 2 and s is not None:
+        image = functional.adjust_saturation(image, s)
+      elif idx == 3 and h is not None:
+        image = functional.adjust_hue(image, h)
+
+    return image
 
   def transform(self, results):
-    '''Make face grid from face bbox, see official implementation of iTracker:
-    https://github.com/CSAILVision/GazeCapture/blob/master/pytorch/ITrackerData.py
-    '''
+    params = ColorJitter.get_params(self.b, self.c, self.s, self.h)
 
-    x, y, w, h = results['grid'].tolist()
+    for image_name in ['face', 'reye', 'leye']:
+      results[image_name] = self._apply_color_jitter(results[image_name], params)
 
-    grid_length = self.grid_size * self.grid_size
-    grid = np.zeros(grid_length, dtype=np.float32)
+    return results
 
-    ind_x = np.array([i % self.grid_size for i in range(grid_length)])
-    ind_y = np.array([i // self.grid_size for i in range(grid_length)])
+@TRANSFORMS.register_module()
+class ITrackerPlusRandomHFlip(BaseTransform):
+  def __init__(self, p_hflip: float = 0.5):
+    self.p_hflip = p_hflip
 
-    cond_x = np.logical_and(ind_x >= x, ind_x < x + w)
-    cond_y = np.logical_and(ind_y >= y, ind_y < y + h)
-
-    grid[np.logical_and(cond_x, cond_y)] = 1.0
-    results['grid'] = torch.tensor(grid, dtype=torch.float32)
+  def transform(self, results):
+    if np.random.random() < self.p_hflip:
+      results['face'] = functional.hflip(results['face'])
+      results['reye'] = functional.hflip(results['reye'])
+      results['leye'] = functional.hflip(results['leye'])
+      results['kpts'][[0, 4, 6]] = -results['kpts'][[0, 4, 6]]
 
     return results
 
@@ -42,14 +75,21 @@ def build_config(opts: argparse.Namespace):
   config = ScriptEnv.load_config_dict('configs/default_runtime.py')
 
   # Model config
-  model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze_2d.py')
-  config['model'] = model_cfgs['itracker']
+  model_cfgs = ScriptEnv.load_config_dict('configs/model/production/itracker_plus.py')
+  config['model'] = model_cfgs['itracker_plus']
 
   # Dataset config
   dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/gazecapture.py')
 
-  pipeline = [dict(type='ITrackerMakeGrid', grid_size=25)]
-  for cfg_name in ['train', 'valid', 'test']:
+  pipeline = [
+    dict(type='ITrackerPlusMakeKpts'),
+    dict(type='ITrackerPlusColorJitter', b=0.6, c=0.4, s=0.4, h=0.4),
+    dict(type='ITrackerPlusRandomHFlip', p_hflip=0.5),
+  ]
+  dataset_cfgs['train'].update(pipeline=pipeline)
+
+  pipeline = [dict(type='ITrackerPlusMakeKpts')]
+  for cfg_name in ['valid', 'test']:
     dataset_cfgs[cfg_name].update(pipeline=pipeline)
 
   config['train_dataloader'] = dict(
@@ -87,7 +127,7 @@ def build_config(opts: argparse.Namespace):
   config['test_cfg'] = dict(type='TestLoop')
 
   # Optimizer config
-  optimizer = dict(type='Adam', lr=1e-4, betas=(0.9, 0.95), weight_decay=1e-4)
+  optimizer = dict(type='Adam', lr=1e-4, betas=(0.9, 0.99), weight_decay=1e-3)
   config['optim_wrapper'] = dict(type='OptimWrapper', optimizer=optimizer)
 
   # Scheduler config
@@ -132,7 +172,7 @@ def main_procedure(opts: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='run script for itracker baseline.')
+  parser = argparse.ArgumentParser(description='run script for itracker plus model.')
 
   parser.add_argument(
     '--mode', choices=['train', 'test'], default='train',
@@ -149,7 +189,7 @@ if __name__ == '__main__':
     help='number of workers for pytorch dataloader.',
   )
   config_group.add_argument(
-    '--batch-size', type=int, default=100,
+    '--batch-size', type=int, default=60,
     help='batch size for pytorch dataloader.',
   )
   config_group.add_argument(
@@ -166,7 +206,7 @@ if __name__ == '__main__':
   )
 
   config_group.add_argument(
-    '--ema-epoch', type=int, default=-1,
+    '--ema-epoch', type=int, default=24,
     help='begin epoch of exponential moving average.',
   )
 

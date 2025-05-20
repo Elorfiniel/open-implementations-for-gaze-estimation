@@ -48,7 +48,7 @@ class ITrackerPlus(BaseModel):
     )
 
     self.kpts_fc = nn.Sequential(
-      nn.Linear(8, 64),
+      nn.Linear(4+2*2, 64),
       nn.ReLU(inplace=True),
       nn.Linear(64, 128),
       nn.ReLU(inplace=True),
