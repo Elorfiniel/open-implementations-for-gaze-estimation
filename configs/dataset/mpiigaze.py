@@ -1,4 +1,4 @@
-# data transformations
+# image transformation
 transform = [
   dict(type='ToTensor'),
 ]
