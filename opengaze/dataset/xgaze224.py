@@ -2,7 +2,7 @@ from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from opengaze.registry import DATASETS
-from opengaze.utils.dataset import build_image_transform
+from opengaze.utils.dataset import build_image_transform, build_data_pipeline
 
 import h5py
 import numpy as np
@@ -12,7 +12,8 @@ import torch
 
 @DATASETS.register_module()
 class XGaze224(Dataset):
-  def __init__(self, root: str, subjects: list, label=False, transform=None):
+  def __init__(self, root: str, subjects: list, label=False,
+               transform=None, pipeline=None):
     '''XGaze dataset, with face patches preprocessed to 224x224.
 
     Args:
@@ -24,23 +25,25 @@ class XGaze224(Dataset):
       `label`: whether gaze labels should be loaded.
 
       `transform`: image transformation.
+
+      `pipeline`: data processing pipeline.
     '''
 
     super(XGaze224, self).__init__()
     self.data = ConcatDataset([
-      XGaze224Subject(root, subject, label, transform)
+      _XGaze224Subject(root, subject, label, transform)
       for subject in subjects
     ])
+    self.pipeline = build_data_pipeline(pipeline)
 
   def __len__(self):
     return len(self.data)
 
   def __getitem__(self, idx):
-    return self.data[idx]
+    return self.pipeline(self.data[idx])
 
 
-@DATASETS.register_module()
-class XGaze224Subject(Dataset):
+class _XGaze224Subject(Dataset):
   def __init__(self, root: str, subject: str, label=False, transform=None):
     '''XGaze dataset for each subject, with face patches preprocessed to 224x224.
 
@@ -55,7 +58,7 @@ class XGaze224Subject(Dataset):
       `transform`: image transformation.
     '''
 
-    super(XGaze224Subject, self).__init__()
+    super(_XGaze224Subject, self).__init__()
 
     self.root = root
     self.subject = subject

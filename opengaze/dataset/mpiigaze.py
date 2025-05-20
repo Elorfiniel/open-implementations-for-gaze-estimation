@@ -2,7 +2,7 @@ from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from opengaze.registry import DATASETS
-from opengaze.utils.dataset import build_image_transform
+from opengaze.utils.dataset import build_image_transform, build_data_pipeline
 from opengaze.utils.euler import gaze_3d_2d_a, pose_3d_2d_a
 
 import cv2
@@ -15,20 +15,24 @@ import torch as torch
 
 @DATASETS.register_module()
 class MPIIGaze(Dataset):
-  def __init__(self, root, train=True, test_pp='p00', eval_subset=False, transform=None):
+  def __init__(self, root, train=True, test_pp='p00', eval_subset=False,
+               transform=None, pipeline=None):
     '''MPIIGaze Dataset.
 
-    `root`: root directory of dataset where prepared data for each person
-    is stored, eg. 'data/mpiigaze'.
+    Args:
+      `root`: root directory of dataset where prepared data for each person
+      is stored, eg. 'data/mpiigaze'.
 
-    `train`: load data for training, otherwise for testing.
+      `train`: load data for training, otherwise for testing.
 
-    `test_pp`: person ID for Leave-One-Out test, eg. 'p00'.
+      `test_pp`: person ID for Leave-One-Out test, eg. 'p00'.
 
-    `eval_subset`: only use data from eval subset, which contains 3000 samples
-    for each person in an accompanying folder of the root directory.
+      `eval_subset`: only use data from eval subset, which contains 3000 samples
+      for each person in an accompanying folder of the root directory.
 
-    `transform`: image transformation.
+      `transform`: image transformation.
+
+      `pipeline`: data processing pipeline.
     '''
 
     person_indices = [f'p{i:02d}' for i in range(15)]
@@ -38,27 +42,29 @@ class MPIIGaze(Dataset):
 
     if train:
       self.data = ConcatDataset([
-        _MPIIGaze_PP(
+        _MPIIGazePP(
           root=osp.join(root, 'normalize', train_pp),
           eval_subset=eval_subset,
           transform=transform,
         ) for train_pp in person_indices
       ])
     else:
-      self.data = _MPIIGaze_PP(
+      self.data = _MPIIGazePP(
         root=osp.join(root, 'normalize', test_pp),
         eval_subset=eval_subset,
         transform=transform,
       )
 
+    self.pipeline = build_data_pipeline(pipeline)
+
   def __len__(self):
     return len(self.data)
 
   def __getitem__(self, idx):
-    return self.data[idx]
+    return self.pipeline(self.data[idx])
 
 
-class _MPIIGaze_PP(Dataset):
+class _MPIIGazePP(Dataset):
   def __init__(self, root, eval_subset=False, transform=None):
     '''Load data for one person in MPIIGaze dataset.
 

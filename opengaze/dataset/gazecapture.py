@@ -2,7 +2,7 @@ from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset
 
 from opengaze.registry import DATASETS
-from opengaze.utils.dataset import build_image_transform
+from opengaze.utils.dataset import build_image_transform, build_data_pipeline
 
 import cv2
 import h5py
@@ -15,7 +15,8 @@ import torch
 
 @DATASETS.register_module()
 class GazeCapture(Dataset):
-  def __init__(self, root: str, split: str, devices: list, transform=None):
+  def __init__(self, root: str, split: str, devices: list,
+               transform=None, pipeline=None):
     '''GazeCapture dataset.
 
     Args:
@@ -27,6 +28,8 @@ class GazeCapture(Dataset):
       `devices`: list of capture devices.
 
       `transform`: image transformation.
+
+      `pipeline`: data processing pipeline.
 
     Devices used to collect GazeCapture dataset include:
       - 'iPad 2', 'iPad 3', 'iPad 4', 'iPad Air', 'iPad Air 2', 'iPad Mini', 'iPad Pro'
@@ -47,19 +50,19 @@ class GazeCapture(Dataset):
         subjects.append(subject_folder)
 
     self.data = ConcatDataset([
-      GazeCaptureSubject(root, subject, transform)
+      _GazeCaptureSubject(root, subject, transform)
       for subject in subjects
     ])
+    self.pipeline = build_data_pipeline(pipeline)
 
   def __len__(self):
     return len(self.data)
 
   def __getitem__(self, idx):
-    return self.data[idx]
+    return self.pipeline(self.data[idx])
 
 
-@DATASETS.register_module()
-class GazeCaptureSubject(Dataset):
+class _GazeCaptureSubject(Dataset):
   def __init__(self, root: str, subject: str, transform=None):
     '''GazeCapture dataset for each subject.
 
@@ -72,7 +75,7 @@ class GazeCaptureSubject(Dataset):
       `transform`: image transformation.
     '''
 
-    super(GazeCaptureSubject, self).__init__()
+    super(_GazeCaptureSubject, self).__init__()
 
     self.root = root
     self.subject = subject

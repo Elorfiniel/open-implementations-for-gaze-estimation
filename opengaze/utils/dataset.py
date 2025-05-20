@@ -21,3 +21,14 @@ def build_image_transform(transform=None):
     transform = Compose(transform)
 
   return transform
+
+
+def build_data_pipeline(pipeline=None):
+  '''Build data processing pipeline, which operates on
+  the data dict rather than the raw image data.
+
+  Args:
+    `pipeline`: a list of dicts, each describing a processing step.
+  '''
+
+  return Compose(pipeline)
