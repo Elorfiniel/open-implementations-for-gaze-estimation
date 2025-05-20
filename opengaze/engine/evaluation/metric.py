@@ -32,3 +32,17 @@ class AngularError(BaseMetric):
 
   def compute_metrics(self, results):
     return dict(mae=sum([r['errs'] for r in results]) / len(results))
+
+
+@METRICS.register_module()
+class DistanceError(BaseMetric):
+  def process(self, data_batch, data_samples):
+    preds_2d, gazes_2d = data_samples
+
+    dists = torch.linalg.vector_norm(preds_2d - gazes_2d, dim=1)
+    errs = torch.mean(dists).cpu()
+
+    self.results.append(dict(errs=errs))
+
+  def compute_metrics(self, results):
+    return dict(mae=sum([r['errs'] for r in results]) / len(results))
