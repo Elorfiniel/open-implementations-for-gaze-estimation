@@ -79,8 +79,11 @@ class FaceLandmarks:
 
 class FaceAlignment:
   def __init__(self, width_expand: float = 1.6, hw_ratio: float = 1.0):
-    '''Perform face alignment following the `gaze-point-estimation-2023` project, see also:
-    https://gitee.com/elorfiniel/gaze-point-estimation-2023/blob/master/source/utils/common/facealign.py
+    '''Perform face alignment following the `gaze-point-estimation-2023` project.
+
+    Reference:
+      - repo: https://gitee.com/elorfiniel/gaze-point-estimation-2023
+      - file: source/utils/common/facealign.py
 
     Args:
       `width_expand`: width expansion factor for eye crops.
