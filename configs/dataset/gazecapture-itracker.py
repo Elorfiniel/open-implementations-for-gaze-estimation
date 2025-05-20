@@ -4,11 +4,6 @@ transform = [
   dict(type='Normalize', mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ]
 
-# data pipeline
-pipeline = [
-  dict(type='ITrackerMakeGrid', grid_size=25)
-]
-
 # dataset settings
 train = dict(
   type='GazeCapture',
@@ -20,7 +15,6 @@ train = dict(
     'iPhone 6', 'iPhone 6 Plus', 'iPhone 6s', 'iPhone 6s Plus',
   ],
   transform=transform,
-  pipeline=pipeline,
 )
 
 valid = dict(
@@ -33,7 +27,6 @@ valid = dict(
     'iPhone 6', 'iPhone 6 Plus', 'iPhone 6s', 'iPhone 6s Plus',
   ],
   transform=transform,
-  pipeline=pipeline,
 )
 
 test = dict(
@@ -46,5 +39,4 @@ test = dict(
     'iPhone 6', 'iPhone 6 Plus', 'iPhone 6s', 'iPhone 6s Plus',
   ],
   transform=transform,
-  pipeline=pipeline,
 )
