@@ -64,16 +64,23 @@ class _XGaze224Subject(Dataset):
     self.subject = subject
     self.label = label
 
-    hdf_path = osp.join(root, f'subject{subject}.h5')
-    self.hdf = h5py.File(hdf_path, 'r', swmr=True)
+    self.hdf_path = osp.join(root, f'subject{subject}.h5')
+    with h5py.File(self.hdf_path, 'r', swmr=True) as hdf_file:
+      self.n_samples = hdf_file['frame_index'].len()
+    self.hdf = None
 
-    self.n_samples = self.hdf['frame_index'].len()
     self.transform = build_image_transform(transform)
+
+  def _load_hdf_file(self, hdf_path):
+    if self.hdf is None:
+      self.hdf = h5py.File(hdf_path, 'r', swmr=True)
 
   def __len__(self):
     return self.n_samples
 
   def __getitem__(self, idx):
+    self._load_hdf_file(self.hdf_path)
+
     fid = torch.tensor(self.hdf['frame_index'][idx], dtype=torch.int32)
     cid = torch.tensor(self.hdf['cam_index'][idx], dtype=torch.int32)
 

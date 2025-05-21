@@ -80,13 +80,17 @@ class _GazeCaptureSubject(Dataset):
     self.root = root
     self.subject = subject
 
-    hdf_path = osp.join(root, subject, 'annot.h5')
-    self.hdf = h5py.File(hdf_path, 'r', swmr=True)
+    self.hdf_path = osp.join(root, subject, 'annot.h5')
+    with h5py.File(self.hdf_path, 'r', swmr=True) as hdf_file:
+      self.ds = [d for d in hdf_file.keys() if d != 'name']
+      self.n_samples = hdf_file['name'].len()
+    self.hdf = None
 
-    self.ds = [d for d in self.hdf.keys() if d != 'name']
-
-    self.n_samples = self.hdf['name'].len()
     self.transform = build_image_transform(transform)
+
+  def _load_hdf_file(self, hdf_path):
+    if self.hdf is None:
+      self.hdf = h5py.File(hdf_path, 'r', swmr=True)
 
   def _load_crop(self, image_path):
     crop = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
@@ -99,6 +103,8 @@ class _GazeCaptureSubject(Dataset):
     return self.n_samples
 
   def __getitem__(self, idx):
+    self._load_hdf_file(self.hdf_path)
+
     image_name = self.hdf['name'].asstr()[idx]
 
     face = self._load_crop(osp.join(self.root, self.subject, 'face', image_name))
