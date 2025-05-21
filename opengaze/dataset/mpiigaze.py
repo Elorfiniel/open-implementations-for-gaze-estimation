@@ -141,7 +141,7 @@ class _MPIIGazePP(Dataset):
 
     prefix = 'leye' if is_left else 'reye'
 
-    img = self.data[f'{prefix}-img'][real_idx]
+    eyes = self.data[f'{prefix}-img'][real_idx]
     gaze = self.data[f'{prefix}-gaze'][real_idx]
     pose = self.data[f'{prefix}-pose'][real_idx]
 
@@ -154,14 +154,14 @@ class _MPIIGazePP(Dataset):
       # Mirror reflection: w.r.t. the XoZ plane (or y axis)
       #   For eye image, it's equivalent to horizontal flip
       #   For gaze and pose, it's equivalent to negate yaw
-      img = cv2.flip(img, flipCode=1)
+      eyes = cv2.flip(eyes, flipCode=1)
       gaze[1], pose[1] = -gaze[1], -pose[1]
 
     gaze = torch.tensor(gaze, dtype=torch.float32)
     pose = torch.tensor(pose, dtype=torch.float32)
 
-    img = Image.fromarray(img, mode='L')
+    eyes = Image.fromarray(eyes, mode='L')
     if self.transform:
-      img = self.transform(img)
+      eyes = self.transform(eyes)
 
-    return dict(eyes=img, pose=pose, gaze=gaze)
+    return dict(eyes=eyes, pose=pose, gaze=gaze)
