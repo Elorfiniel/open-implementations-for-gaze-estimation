@@ -7,7 +7,7 @@ transform = [
 # dataset settings
 train = dict(
   type='XGaze224',
-  root='data/xgaze-224/train',
+  root='data/xgaze224/train',
   subjects=[
     "0000", "0004", "0005", "0006", "0007", "0008",
     "0009", "0010", "0013", "0014", "0015", "0016",
@@ -28,7 +28,7 @@ train = dict(
 
 valid = dict(
   type='XGaze224',
-  root='data/xgaze-224/train',
+  root='data/xgaze224/train',
   subjects=[
     "0003", "0032", "0033", "0048", "0052", "0062",
     "0080", "0088", "0101", "0109",
@@ -39,7 +39,7 @@ valid = dict(
 
 test_a = dict(
   type='XGaze224',
-  root='data/xgaze-224/test',
+  root='data/xgaze224/test',
   subjects=[
     "0001", "0002", "0020", "0023", "0037", "0064",
     "0068", "0070", "0082", "0087", "0049", "0091",
@@ -51,7 +51,7 @@ test_a = dict(
 
 test_b = dict(
   type='XGaze224',
-  root='data/xgaze-224/test_person_specific',
+  root='data/xgaze224/test_person_specific',
   subjects=[
     "0012", "0022", "0025", "0047", "0054", "0074",
     "0086", "0094", "0096", "0097", "0110", "0116",
