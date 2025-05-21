@@ -189,7 +189,7 @@ def main_procedure(cmdargs: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Prepare data for GazeCapture dataset.')
+  parser = argparse.ArgumentParser(description='prepare data for GazeCapture dataset.')
 
   parser.add_argument(
     '--dataset-path', type=str, required=True,

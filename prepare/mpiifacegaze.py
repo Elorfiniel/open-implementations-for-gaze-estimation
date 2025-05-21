@@ -219,7 +219,7 @@ def main_procedure(cmdargs: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Prepare data for MPIIFaceGaze dataset.')
+  parser = argparse.ArgumentParser(description='prepare data for MPIIFaceGaze dataset.')
 
   parser.add_argument(
     '--dataset-path', type=str, required=True,
