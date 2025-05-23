@@ -2,6 +2,7 @@
 
 import logging
 import logging.config
+import os.path as osp
 
 
 __all__ = ['runtime_logger']
@@ -26,16 +27,28 @@ LOGGING_CONFIG = {
   'loggers': {},  # Runtime loggers
 }
 
+FILE_HANDLER_CONFIG = {
+  'class': 'logging.FileHandler',
+  'level': 'INFO',
+  'formatter': 'simple',
+  'filename': 'main.log',
+}
 
-def runtime_logger(name: str, level: int = logging.INFO):
+
+def runtime_logger(name: str, level: int = logging.INFO, log_file: str = ''):
   '''Create a runtime logger with given name and level.'''
 
   if not name in LOGGING_CONFIG['loggers']:
-    LOGGING_CONFIG['loggers'][name] = dict(
-      level=level,
-      handlers=['console'],
-      propagate=False,
-    )
+    if log_file:
+      handler_config = FILE_HANDLER_CONFIG.copy()
+      handler_config['filename'] = osp.abspath(log_file)
+      LOGGING_CONFIG['handlers'][name] = handler_config
+
+    handlers = ['console', name] if log_file else ['console']
+
+    logger_config = dict(level=level, handlers=handlers, propagate=False)
+    LOGGING_CONFIG['loggers'][name] = logger_config
+
     logging.config.dictConfig(LOGGING_CONFIG)
 
   return logging.getLogger(name)
