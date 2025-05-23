@@ -91,20 +91,21 @@ def process_subject(subjects_folder, subject, opt_folder):
 
   # Create hdf datasets
   hdf_file = h5py.File(osp.join(subject_opt_folder, f'annot.h5'), 'w')
+  max_n_samples = max(len(valid_labels), 1)
   name = hdf_file.create_dataset(
-    'name', shape=len(valid_labels),
+    'name', shape=max_n_samples,
     dtype=h5py.string_dtype(length=32),
-    chunks=1, maxshape=len(valid_labels),
+    chunks=1, maxshape=max_n_samples,
   )
   gaze = hdf_file.create_dataset(
-    'gaze', shape=(len(valid_labels), 2),
+    'gaze', shape=(max_n_samples, 2),
     dtype=np.float32, chunks=(1, 2),
-    maxshape=(len(valid_labels), 2),
+    maxshape=(max_n_samples, 2),
   )
   grid = hdf_file.create_dataset(
-    'grid', shape=(len(valid_labels), 4),
+    'grid', shape=(max_n_samples, 4),
     dtype=int, chunks=(1, 4),
-    maxshape=(len(valid_labels), 4),
+    maxshape=(max_n_samples, 4),
   )
 
   # Create image patch folders
@@ -150,6 +151,7 @@ def process_subject(subjects_folder, subject, opt_folder):
 
     n_samples = n_samples + 1
 
+  name.resize(n_samples, axis=0)
   gaze.resize(n_samples, axis=0)
   grid.resize(n_samples, axis=0)
 
