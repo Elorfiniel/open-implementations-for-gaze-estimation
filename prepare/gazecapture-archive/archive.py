@@ -149,7 +149,7 @@ def main_procedure(cmdargs: argparse.Namespace):
 
   tasks = process_tasks(dataset_path, archive_path)
   executor = futures.ProcessPoolExecutor(cmdargs.max_workers)
-  run_parallel(executor, tasks)
+  run_parallel(executor, tasks, rt_logger)
 
 
 

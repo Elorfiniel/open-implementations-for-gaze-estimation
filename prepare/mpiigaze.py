@@ -218,7 +218,7 @@ def main_procedure(cmdargs: argparse.Namespace):
 
   tasks = process_tasks(dataset_path, osp.join(data_folder, 'normalize'))
   executor = futures.ProcessPoolExecutor(cmdargs.max_workers)
-  run_parallel(executor, tasks)
+  run_parallel(executor, tasks, rt_logger)
 
   copy_evaluation_samples(dataset_path, osp.join(data_folder, 'evaluation'))
 
