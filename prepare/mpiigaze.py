@@ -14,7 +14,10 @@ import scipy.io as sio
 import shutil
 
 
-rt_logger = runtime_logger('mpiigaze')
+rt_logger = runtime_logger(
+  name='mpiigaze',
+  log_file=ScriptEnv.log_path('prepare-mpiigaze.log'),
+)
 
 
 class Screen2Camera:
@@ -178,6 +181,8 @@ def process_pp_dd(persons_folder, pp, dd, opt_folder):
 
   # Close hdf file
   hdf_file.close()
+  # Log processing result
+  rt_logger.info(f'processed: {pp}, {dd}, {len(label_file)} samples')
 
 def process_tasks(dataset_path, opt_folder):
   persons_folder = osp.join(dataset_path, 'Data', 'Original')

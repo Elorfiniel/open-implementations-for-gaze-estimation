@@ -1,6 +1,7 @@
 # This script converts the folder structure of the GazeCapture dataset into
 # a more compact format for archive purpose, which leads to faster access
 
+from opengaze.runtime.scripts import ScriptEnv
 from opengaze.runtime.log import runtime_logger
 from opengaze.runtime.parallel import FunctionalTask, run_parallel
 
@@ -17,7 +18,10 @@ import pandas as pd
 import tarfile
 
 
-rt_logger = runtime_logger('gazecapture')
+rt_logger = runtime_logger(
+  name='gazecapture',
+  log_file=ScriptEnv.log_path('archive-gazecapture.log'),
+)
 
 
 def load_json_data(json_file: str):
@@ -114,6 +118,9 @@ def process_subject(subjects_folder, subject, archive_path):
     load_gc_subject_metadata(subject_folder),
     osp.join(archive_folder, 'metadata.json'),
   )
+
+  # Log processing result
+  rt_logger.info(f'processed: subject {subject}')
 
 def process_tasks(dataset_path, archive_path):
   subjects_folder = osp.abspath(dataset_path)

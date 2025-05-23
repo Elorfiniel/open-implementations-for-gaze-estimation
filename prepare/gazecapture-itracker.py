@@ -14,7 +14,10 @@ import os
 import os.path as osp
 
 
-rt_logger = runtime_logger('gazecapture')
+rt_logger = runtime_logger(
+  name='gazecapture',
+  log_file=ScriptEnv.log_path('prepare-gazecapture.log'),
+)
 
 
 def load_json_data(json_file: str):
@@ -156,6 +159,9 @@ def process_subject(subjects_folder, subject, opt_folder):
     split=metadata['Dataset'],
     counts=n_samples,
   ), osp.join(subject_opt_folder, 'meta.json'))
+
+  # Log processing result
+  rt_logger.info(f'processed: subject {subject}, {n_samples} samples')
 
 def process_tasks(dataset_path, opt_folder):
   subjects_folder = osp.abspath(dataset_path)

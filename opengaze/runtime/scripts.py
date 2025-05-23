@@ -73,6 +73,11 @@ class ScriptEnv:
     return osp.join(ScriptEnv.WORKSPACE, 'resource', resource)
 
   @staticmethod
+  def log_path(log_file: str):
+    '''Build log path by prepending the log folder.'''
+    return osp.join(ScriptEnv.WORKSPACE, 'logs', log_file)
+
+  @staticmethod
   def data_path(dataset: str):
     '''Build data path by prepending the data folder.'''
     return osp.join(ScriptEnv.WORKSPACE, 'data', dataset)

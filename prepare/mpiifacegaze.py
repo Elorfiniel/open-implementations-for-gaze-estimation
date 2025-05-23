@@ -14,7 +14,10 @@ import os.path as osp
 import scipy.io as sio
 
 
-rt_logger = runtime_logger('mpiifacegaze')
+rt_logger = runtime_logger(
+  name='mpiifacegaze',
+  log_file=ScriptEnv.log_path('prepare-mpiifacegaze.log'),
+)
 
 
 class Screen2Camera:
@@ -180,6 +183,8 @@ def process_pp_dd(persons_folder, pp, dd, opt_folder):
 
   # Close hdf file
   hdf_file.close()
+  # Log processing result
+  rt_logger.info(f'processed: {pp}, {dd}, {len(label_file)} samples')
 
 def process_tasks(dataset_path, opt_folder):
   persons_folder = osp.abspath(dataset_path)
