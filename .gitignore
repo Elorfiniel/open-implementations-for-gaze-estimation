@@ -4,6 +4,9 @@ __pycache__
 # ignore package build files
 *.egg-info
 
+# ignore vscode configuration file
+.vscode
+
 # ignore temporary files for training and testing
 data/*
 !data/.gitkeep
