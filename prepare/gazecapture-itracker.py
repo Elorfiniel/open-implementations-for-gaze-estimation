@@ -12,6 +12,7 @@ import json
 import numpy as np
 import os
 import os.path as osp
+import shutil
 
 
 rt_logger = runtime_logger(
@@ -126,6 +127,8 @@ def process_subject(subjects_folder, subject, opt_folder):
     )
     pog = np.array(sample[['gx_cm', 'gy_cm']].tolist(), dtype=np.float32)
 
+    if img is None: continue
+
     cv2.imwrite(
       osp.join(face_folder, sample['image']),
       image_crop(img, valid_bboxes['face'][idx]),
@@ -161,7 +164,11 @@ def process_subject(subjects_folder, subject, opt_folder):
   ), osp.join(subject_opt_folder, 'meta.json'))
 
   # Log processing result
-  rt_logger.info(f'processed: subject {subject}, {n_samples} samples')
+  if n_samples == 0:
+    rt_logger.warning(f'skipped: subject {subject}, no valid samples')
+    shutil.rmtree(subject_opt_folder, ignore_errors=True)
+  else:
+    rt_logger.info(f'processed: subject {subject}, {n_samples} samples')
 
 def process_tasks(dataset_path, opt_folder):
   subjects_folder = osp.abspath(dataset_path)

@@ -14,6 +14,7 @@ import json
 import numpy as np
 import os
 import os.path as osp
+import shutil
 import tarfile
 
 
@@ -110,6 +111,10 @@ def process_subject(subjects_folder, subject, opt_folder):
     for idx in range(len(valid_labels)):
       sample = valid_labels[idx]  # Numpy structured array
 
+      try:  # Check if the image exists
+        tarball.getmember(sample['image'])
+      except KeyError: continue
+
       img_raw_data = tarball.extractfile(sample['image']).read()
       img = cv2.imdecode(
         np.frombuffer(img_raw_data, np.uint8),
@@ -162,7 +167,11 @@ def process_subject(subjects_folder, subject, opt_folder):
   ), osp.join(subject_opt_folder, 'meta.json'))
 
   # Log processing result
-  rt_logger.info(f'processed: subject {subject}, {n_samples} samples')
+  if n_samples == 0:
+    rt_logger.warning(f'skipped: subject {subject}, no valid samples')
+    shutil.rmtree(subject_opt_folder, ignore_errors=True)
+  else:
+    rt_logger.info(f'processed: subject {subject}, {n_samples} samples')
 
 def process_tasks(archive_path, opt_folder):
   subjects_folder = osp.abspath(archive_path)
