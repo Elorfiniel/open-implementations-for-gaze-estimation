@@ -145,9 +145,9 @@ def process_subject(subjects_folder, subject, opt_folder):
       image_crop(img, valid_bboxes['leye'][idx]),
       [cv2.IMWRITE_JPEG_QUALITY, 100],
     )
-    name[idx] = sample['image']
-    gaze[idx] = pog
-    grid[idx] = valid_bboxes['grid'][idx]
+    name[n_samples] = sample['image']
+    gaze[n_samples] = pog
+    grid[n_samples] = valid_bboxes['grid'][idx]
 
     n_samples = n_samples + 1
 

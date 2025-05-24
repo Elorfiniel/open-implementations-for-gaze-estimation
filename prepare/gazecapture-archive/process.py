@@ -142,14 +142,14 @@ def process_subject(subjects_folder, subject, opt_folder):
         align_dict['leye_crop'],
         [cv2.IMWRITE_JPEG_QUALITY, 100],
       )
-      name[idx] = sample['image']
-      gaze[idx] = rotate_vector(pog, -align_dict['theta'])
-      bbox[idx] = np.concatenate([
+      name[n_samples] = sample['image']
+      gaze[n_samples] = rotate_vector(pog, -align_dict['theta'])
+      bbox[n_samples] = np.concatenate([
         align_dict['face_bbox'],
         align_dict['reye_bbox'],
         align_dict['leye_bbox'],
       ], axis=0)
-      ldmk[idx] = align_dict['ldmks']
+      ldmk[n_samples] = align_dict['ldmks']
 
       n_samples = n_samples + 1
 
