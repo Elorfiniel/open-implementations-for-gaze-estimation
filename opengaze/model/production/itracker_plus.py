@@ -19,6 +19,7 @@ class ITrackerPlus(BaseModel):
     - face crop, shape: (B, 3, 224, 224)
     - reye crop, shape: (B, 3, 224, 224)
     - leye crop, shape: (B, 3, 224, 224)
+    - face kpts, shape: (B, 8)
 
   Output:
     - point of gaze (gx, gy), shape: (B, 2)
