@@ -3,6 +3,7 @@ __pycache__
 
 # ignore package build files
 *.egg-info
+build
 
 # ignore vscode configuration file
 .vscode
