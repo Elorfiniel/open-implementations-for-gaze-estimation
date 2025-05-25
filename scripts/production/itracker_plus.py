@@ -12,14 +12,13 @@ import torch
 
 
 @TRANSFORMS.register_module()
-class ITrackerPlusMakeKpts(BaseTransform):
+class ITrackerPlusDataAdapter(BaseTransform):
   def transform(self, results):
     results['kpts'] = torch.cat([
       results['bbox'][:4],  # Face bbox
       results['ldmk'][468], # Reye center
       results['ldmk'][473], # Leye center
     ], dim=0)
-
     return results
 
 @TRANSFORMS.register_module()
@@ -66,7 +65,6 @@ class ITrackerPlusRandomHFlip(BaseTransform):
       results['reye'] = functional.hflip(results['reye'])
       results['leye'] = functional.hflip(results['leye'])
       results['kpts'][[0, 4, 6]] = -results['kpts'][[0, 4, 6]]
-
     return results
 
 
@@ -82,13 +80,13 @@ def build_config(opts: argparse.Namespace):
   dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/gazecapture.py')
 
   pipeline = [
-    dict(type='ITrackerPlusMakeKpts'),
+    dict(type='ITrackerPlusDataAdapter'),
     dict(type='ITrackerPlusColorJitter', b=0.6, c=0.4, s=0.4, h=0.4),
     dict(type='ITrackerPlusRandomHFlip', p_hflip=0.5),
   ]
   dataset_cfgs['train'].update(pipeline=pipeline)
 
-  pipeline = [dict(type='ITrackerPlusMakeKpts')]
+  pipeline = [dict(type='ITrackerPlusDataAdapter')]
   for cfg_name in ['valid', 'test']:
     dataset_cfgs[cfg_name].update(pipeline=pipeline)
 

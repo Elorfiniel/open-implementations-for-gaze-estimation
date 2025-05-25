@@ -4,36 +4,25 @@ from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
 
 from mmengine.config import Config
 from mmengine.runner import Runner
+from torchvision.transforms import functional, InterpolationMode
 
 import argparse
-import numpy as np
-import torch
 
 
 @TRANSFORMS.register_module()
-class ITrackerDataAdapter(BaseTransform):
-  def __init__(self, grid_size: int = 25):
-    self.grid_size = grid_size
-
+class AffNetDataAdapter(BaseTransform):
   def transform(self, results):
-    '''Make face grid from face bbox, see official implementation of iTracker:
-    https://github.com/CSAILVision/GazeCapture/blob/master/pytorch/ITrackerData.py
-    '''
-
-    x, y, w, h = results['grid'].tolist()
-
-    grid_length = self.grid_size * self.grid_size
-    grid = np.zeros(grid_length, dtype=np.float32)
-
-    ind_x = np.array([i % self.grid_size for i in range(grid_length)])
-    ind_y = np.array([i // self.grid_size for i in range(grid_length)])
-
-    cond_x = np.logical_and(ind_x >= x, ind_x < x + w)
-    cond_y = np.logical_and(ind_y >= y, ind_y < y + h)
-
-    grid[np.logical_and(cond_x, cond_y)] = 1.0
-    results['grid'] = torch.tensor(grid, dtype=torch.float32)
-
+    results['rect'] = results['bbox']
+    results['reye'] = functional.resize(
+      functional.hflip(results['reye']),
+      size=(112, 112),
+      interpolation=InterpolationMode.BICUBIC,
+    )
+    results['leye'] = functional.resize(
+      results['leye'],
+      size=(112, 112),
+      interpolation=InterpolationMode.BICUBIC,
+    )
     return results
 
 
@@ -43,13 +32,18 @@ def build_config(opts: argparse.Namespace):
 
   # Model config
   model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze_2d.py')
-  config['model'] = model_cfgs['itracker']
+  config['model'] = model_cfgs['affnet']
 
   # Dataset config
   dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/gazecapture.py')
 
-  pipeline = [dict(type='ITrackerDataAdapter', grid_size=25)]
-  for cfg_name in ['train', 'valid', 'test']:
+  pipeline = [
+    dict(type='AffNetDataAdapter'),
+  ]
+  dataset_cfgs['train'].update(pipeline=pipeline)
+
+  pipeline = [dict(type='AffNetDataAdapter')]
+  for cfg_name in ['valid', 'test']:
     dataset_cfgs[cfg_name].update(pipeline=pipeline)
 
   config['train_dataloader'] = dict(
@@ -87,7 +81,7 @@ def build_config(opts: argparse.Namespace):
   config['test_cfg'] = dict(type='TestLoop')
 
   # Optimizer config
-  optimizer = dict(type='Adam', lr=1e-4, betas=(0.9, 0.95), weight_decay=1e-4)
+  optimizer = dict(type='Adam', lr=1e-3, weight_decay=5e-3)
   config['optim_wrapper'] = dict(type='OptimWrapper', optimizer=optimizer)
 
   # Scheduler config
@@ -132,7 +126,7 @@ def main_procedure(opts: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='run script for itracker baseline.')
+  parser = argparse.ArgumentParser(description='run script for affnet baseline.')
 
   parser.add_argument(
     '--mode', choices=['train', 'test'], default='train',
@@ -153,11 +147,11 @@ if __name__ == '__main__':
     help='batch size for pytorch dataloader.',
   )
   config_group.add_argument(
-    '--max-epochs', type=int, default=30,
+    '--max-epochs', type=int, default=20,
     help='max number of epochs for training.',
   )
   config_group.add_argument(
-    '--step-size', type=int, default=10,
+    '--step-size', type=int, default=8,
     help='step size for learning rate scheduler.',
   )
   config_group.add_argument(

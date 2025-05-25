@@ -262,7 +262,7 @@ class AffNet(BaseModel):
   Input:
     - face crop, shape: (B, 3, 224, 224)
     - reye crop, shape: (B, 3, 112, 112), flip: true
-    - leye crop, shape: (B, 3, 112, 112), flip: none
+    - leye crop, shape: (B, 3, 112, 112), flip: false
     - crop rect, shape: (B, 12)
 
   Output:
