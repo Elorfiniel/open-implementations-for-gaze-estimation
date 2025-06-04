@@ -1,1 +1,1 @@
-from .quant import FreezeQuantHook
+from .quant import FreezeQuantParamsHook

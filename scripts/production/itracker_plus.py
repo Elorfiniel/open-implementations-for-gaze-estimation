@@ -1,6 +1,7 @@
 from opengaze.engine.transform import BaseTransform
 from opengaze.registry import TRANSFORMS
 from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
+from opengaze.utils.quant import QuantConfigAdapter
 
 from mmengine.config import Config
 from mmengine.runner import Runner
@@ -152,13 +153,41 @@ def build_config(opts: argparse.Namespace):
   # Enable automatic scaling of learning rate
   config['auto_scale_lr'] = dict(enable=True, base_batch_size=opts.batch_size)
 
-  return Config(config)
+  return Config(config, format_python_code=False)
 
+def adapt_config(cfg: Config, opts: argparse.Namespace):
+  # Model config
+  model_cfgs = ScriptEnv.load_config_dict('configs/model/production/itracker_plus.py')
+  adapter = QuantConfigAdapter(model_cfgs['quant_itracker_plus'], opts.qat_fp32)
+  cfg = adapter.adapt(cfg)
+
+  # Hook config
+  cfg.custom_hooks.extend([
+    dict(
+      type='FreezeQuantParamsHook',
+      freeze_bn=opts.qat_freeze_bn,
+      freeze_qt=opts.qat_freeze_qt,
+    ),
+    # dict(
+    #   type='SaveQuantModuleHook',
+    #   model_path=opts.qat_int8,
+    #   input_shapes=dict(
+    #     face=(1, 3, 224, 224),
+    #     reye=(1, 3, 224, 224),
+    #     leye=(1, 3, 224, 224),
+    #     kpts=(1, 8),
+    #   ),
+    # ),
+  ])
+
+  return cfg
 
 def main_procedure(opts: argparse.Namespace):
   ScriptEnv.unified_runtime_environment()
 
   config = build_config(opts)
+  if opts.quant:
+    config = adapt_config(config, opts)
   ScriptEnv.merge_config(config, opts)
 
   runner = Runner.from_cfg(config)
@@ -206,6 +235,32 @@ if __name__ == '__main__':
   config_group.add_argument(
     '--ema-epoch', type=int, default=24,
     help='begin epoch of exponential moving average.',
+  )
+
+  quant_group = parser.add_argument_group(
+    title='quant options',
+    description='config options for quantization.',
+  )
+
+  quant_group.add_argument(
+    '--quant', action='store_true', default=False,
+    help='enable quantization aware training.',
+  )
+  quant_group.add_argument(
+    '--qat-fp32', type=str, default='',
+    help='(qat) load fp32 model as source.'
+  )
+  quant_group.add_argument(
+    '--qat-int8', type=str, default='',
+    help='(qat) save int8 model as target.'
+  )
+  quant_group.add_argument(
+    '--qat-freeze-bn', type=int, default=-1,
+    help='(qat) epoch to freeze batch norm layers.'
+  )
+  quant_group.add_argument(
+    '--qat-freeze-qt', type=int, default=-1,
+    help='(qat) epoch to freeze quantizer params.'
   )
 
   opts, _ = ScriptOptions(parser).parse_args()

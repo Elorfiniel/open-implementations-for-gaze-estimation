@@ -49,7 +49,7 @@ def save_traced(model: nn.Module, model_path: str, inputs: Union[Tuple, Dict]):
   elif isinstance(inputs, dict):
     script_module = torch.jit.trace(model, example_kwarg_inputs=inputs)
   else:
-    raise TypeError(f'Inputs must be either a tuple or a dict, but got {type(inputs)}.')
+    raise TypeError(f'Expecting a tuple or a dict, but got {type(inputs)}.')
 
   torch.jit.save(script_module, osp.abspath(model_path))
 
