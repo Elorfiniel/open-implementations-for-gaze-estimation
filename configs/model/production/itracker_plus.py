@@ -13,3 +13,10 @@ itracker_plus = dict(
     ),
   ],
 )
+
+quant_itracker_plus = dict(
+  type='QuantITrackerPlus',
+  init_cfg=[
+    dict(type='Kaiming', mode='fan_in'),
+  ],
+)
