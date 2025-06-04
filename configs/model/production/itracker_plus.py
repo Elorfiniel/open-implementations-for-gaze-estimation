@@ -1,7 +1,7 @@
 # model settings
 itracker_plus = dict(
   type='ITrackerPlus',
-  init_cfg=dict(
+  init_cfg=[
     dict(
       type='Kaiming', mode='fan_in', layer=None,
       override=[
@@ -11,5 +11,5 @@ itracker_plus = dict(
         dict(name='fc'),
       ],
     ),
-  ),
+  ],
 )
