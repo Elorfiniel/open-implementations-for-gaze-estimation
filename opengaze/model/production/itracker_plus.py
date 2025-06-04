@@ -1,5 +1,11 @@
 from mmengine.model import BaseModel
 
+from torch.ao.quantization import QuantStub, DeQuantStub
+from torchvision.models.mobilenetv2 import MobileNetV2
+from torchvision.models.quantization.mobilenetv2 import QuantizableInvertedResidual
+from torchvision.ops.misc import Conv2dNormActivation
+from torchvision.models.quantization.utils import _replace_relu, _fuse_modules
+
 from opengaze.registry import MODELS, LOSSES
 
 import torch as torch
@@ -88,3 +94,58 @@ class ITrackerPlus(BaseModel):
       return gazes, data_dict['gaze']
 
     return gazes
+
+
+@MODELS.register_module()
+class QuantITrackerPlus(ITrackerPlus):
+  '''Quantized version of ITrackerPlus model, used for static PTQ or QAT.'''
+
+  def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
+    super(QuantITrackerPlus, self).__init__(init_cfg=init_cfg, loss_cfg=loss_cfg)
+
+    self.quant_face = QuantStub()
+    self.quant_reye = QuantStub()
+    self.quant_leye = QuantStub()
+    self.quant_kpts = QuantStub()
+    self.dequant = DeQuantStub()
+
+    self._prepare_quant_modules()
+
+  def _prepare_quant_modules(self):
+    reassign = {} # For reassigning quantized modules
+
+    for name, module in self.named_children():
+      if type(module) is MobileNetV2:
+        new_module = MobileNetV2(block=QuantizableInvertedResidual)
+        new_module.load_state_dict(module.state_dict())
+        reassign[name] = new_module
+    for name, module in reassign.items():
+      self._modules[name] = module
+
+    _replace_relu(self)
+
+  def forward(self, mode='tensor', **data_dict):
+    gazes = super(QuantITrackerPlus, self).forward(
+      mode='tensor',
+      face=self.quant_face(data_dict['face']),
+      reye=self.quant_reye(data_dict['reye']),
+      leye=self.quant_leye(data_dict['leye']),
+      kpts=self.quant_kpts(data_dict['kpts']),
+    )
+    gazes = self.dequant(gazes)
+
+    if mode == 'loss':
+      loss = self.loss_fn(gazes, data_dict['gaze'])
+      return dict(loss=loss)
+
+    if mode == 'predict':
+      return gazes, data_dict['gaze']
+
+    return gazes
+
+  def fuse_model(self, is_qat: bool = None):
+    for module in self.modules():
+      if type(module) is Conv2dNormActivation:
+        _fuse_modules(module, ['0', '1', '2'], is_qat, inplace=True)
+      if type(module) is QuantizableInvertedResidual:
+        module.fuse_model(is_qat)
