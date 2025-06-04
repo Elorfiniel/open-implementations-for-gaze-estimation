@@ -28,7 +28,7 @@ RUNNERS = Registry('runner', parent=MMENGINE_RUNNERS)
 # manage all kinds of loops like `EpochBasedTrainLoop`
 LOOPS = Registry('loop', parent=MMENGINE_LOOPS)
 # manage all kinds of hooks like `CheckpointHook`
-HOOKS = Registry('hook', parent=MMENGINE_HOOKS)
+HOOKS = Registry('hook', parent=MMENGINE_HOOKS, locations=['opengaze.engine.hook'])
 
 # manage data-related modules
 DATASETS = Registry('dataset', parent=MMENGINE_DATASETS, locations=['opengaze.dataset'])
