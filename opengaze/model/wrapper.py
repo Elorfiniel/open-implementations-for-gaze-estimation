@@ -27,10 +27,8 @@ class BackboneHead(BaseModel):
 
     super(BackboneHead, self).__init__(init_cfg=init_cfg)
 
-    self.model = MODELS.build(model_cfg)
+    self.model: DataFnMixin = MODELS.build(model_cfg)
     self.loss_fn = LOSSES.build(loss_cfg)
-
-    self.data_fn = lambda data_dict: data_dict
 
   def forward(self, mode='tensor', **data_dict):
     '''Parse actual data dict from the input data dict provided by mmengine,
@@ -46,7 +44,7 @@ class BackboneHead(BaseModel):
     see the implementation of gaze datasets for more details.
     '''
 
-    actual_data_dict = self.data_fn(data_dict)
+    actual_data_dict = self.model.data_fn(data_dict)
     gaze = self.model(**actual_data_dict)
 
     if mode == 'loss':
@@ -57,3 +55,15 @@ class BackboneHead(BaseModel):
       return gaze, data_dict['gaze']
 
     return gaze
+
+
+class DataFnMixin:
+  def data_fn(self, data_dict: dict):
+    '''Takes as input the data dict from mmengine, and returns the actual
+    data dict that the wrapped model expects.
+
+    Args:
+      `data_dict`: a dictionary of data for batch samples.
+    '''
+
+    return data_dict
