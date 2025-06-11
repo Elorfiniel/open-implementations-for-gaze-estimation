@@ -5,6 +5,18 @@ from opengaze.registry import MODELS, LOSSES
 import torch as torch
 
 
+class DataFnMixin:
+  def data_fn(self, data_dict: dict):
+    '''Takes as input the data dict from mmengine, and returns the actual
+    data dict that the wrapped model expects.
+
+    Args:
+      `data_dict`: a dictionary of data for batch samples.
+    '''
+
+    return data_dict
+
+
 @MODELS.register_module()
 class BackboneHead(BaseModel):
   '''Model wrapper for Backbone-Head architecture, which takes many input streams,
@@ -54,15 +66,3 @@ class BackboneHead(BaseModel):
       return gaze, data_dict['gaze']
 
     return gaze
-
-
-class DataFnMixin:
-  def data_fn(self, data_dict: dict):
-    '''Takes as input the data dict from mmengine, and returns the actual
-    data dict that the wrapped model expects.
-
-    Args:
-      `data_dict`: a dictionary of data for batch samples.
-    '''
-
-    return data_dict
