@@ -11,12 +11,11 @@ class BackboneHead(BaseModel):
   ie. face image, face bbox, and outputs the gaze prediction for each sample.
   '''
 
-  def __init__(self, model_cfg: dict, init_cfg: dict, loss_cfg: dict):
+  def __init__(self, model_cfg: dict, loss_cfg: dict):
     '''Model wrapper for Backbone-Head architecture.
 
     Args:
       `model_cfg`: configuration dict for registered models of type `BaseModel`.
-      `init_cfg`: configuration dict for weight initialization.
       `loss_cfg`: configuration dict for registered loss functions.
 
     Note that `data_fn` processes the input data dict from mmengine, then passes
@@ -25,7 +24,7 @@ class BackboneHead(BaseModel):
     returns the input data dict (no-op transformation).
     '''
 
-    super(BackboneHead, self).__init__(init_cfg=init_cfg)
+    super(BackboneHead, self).__init__()
 
     self.model: DataFnMixin = MODELS.build(model_cfg)
     self.loss_fn = LOSSES.build(loss_cfg)
