@@ -1,14 +1,14 @@
-from mmengine.model import BaseModel
+from mmengine.model import BaseModule
 
-from opengaze.registry import MODELS, LOSSES
+from opengaze.registry import MODELS
+from opengaze.model.wrapper import DataFnMixin
 
 import torch as torch
 import torch.nn as nn
-import torchvision as tv
 
 
 @MODELS.register_module()
-class ITracker(BaseModel):
+class ITracker(DataFnMixin, BaseModule):
   '''
   Bibliography:
     Krafka, Kyle, Aditya Khosla, Petr Kellnhofer, Harini Kannan,
@@ -28,7 +28,7 @@ class ITracker(BaseModel):
     - point of gaze (gx, gy), shape: (B, 2)
   '''
 
-  def __init__(self, init_cfg=None, loss_cfg=dict(type='MSELoss')):
+  def __init__(self, init_cfg: dict = None):
     super(ITracker, self).__init__(init_cfg=init_cfg)
 
     self.face_conv = nn.Sequential(
@@ -86,33 +86,28 @@ class ITracker(BaseModel):
       nn.Linear(128, 2),
     )
 
-    self.loss_fn = LOSSES.build(loss_cfg)
+  def data_fn(self, data_dict: dict):
+    return dict(
+      face=data_dict['face'], reye=data_dict['reye'],
+      leye=data_dict['leye'], grid=data_dict['grid'],
+    )
 
-  def forward(self, mode='tensor', **data_dict):
-    feats_face = self.face_conv(data_dict['face'])
-    feats_face = torch.flatten(feats_face, start_dim=1)
-    feats_face = self.face_fc(feats_face)
+  def forward(self, face: torch.Tensor, reye: torch.Tensor,
+              leye: torch.Tensor, grid: torch.Tensor):
+    feat_face = self.face_conv(face).flatten(start_dim=1)
+    feat_face = self.face_fc(feat_face)
 
-    feats_reye = self.eyes_conv(data_dict['reye'])
-    feats_reye = torch.flatten(feats_reye, start_dim=1)
-    feats_leye = self.eyes_conv(data_dict['leye'])
-    feats_leye = torch.flatten(feats_leye, start_dim=1)
-    feats_eyes = torch.cat([feats_reye, feats_leye], dim=1)
-    feats_eyes = self.eyes_fc(feats_eyes)
+    feat_reye = self.eyes_conv(reye).flatten(start_dim=1)
+    feat_leye = self.eyes_conv(leye).flatten(start_dim=1)
+    feat_eyes = torch.cat([feat_reye, feat_leye], dim=1)
+    feat_eyes = self.eyes_fc(feat_eyes)
 
-    feats_grid = self.grid_fc(data_dict['grid'])
+    feat_grid = self.grid_fc(grid)
 
-    feats = torch.cat([feats_face, feats_eyes, feats_grid], dim=1)
-    gazes = self.fc(feats)
+    feat = torch.cat([feat_face, feat_eyes, feat_grid], dim=1)
+    gaze = self.fc(feat)
 
-    if mode == 'loss':
-      loss = self.loss_fn(gazes, data_dict['gaze'])
-      return dict(loss=loss)
-
-    if mode == 'predict':
-      return gazes, data_dict['gaze']
-
-    return gazes
+    return gaze
 
 
 class _AffNetSELayer(nn.Module):
@@ -250,7 +245,7 @@ class _AffNetEyes(nn.Module):
     return feats
 
 @MODELS.register_module()
-class AffNet(BaseModel):
+class AffNet(DataFnMixin, BaseModule):
   '''
   Bibliography:
     Bao, Yiwei, Yihua Cheng, Yunfei Liu, and Feng Lu.
@@ -269,7 +264,7 @@ class AffNet(BaseModel):
     - point of gaze (gx, gy), shape: (B, 2)
   '''
 
-  def __init__(self, init_cfg=None, loss_cfg=dict(type='SmoothL1Loss')):
+  def __init__(self, init_cfg: dict = None):
     super(AffNet, self).__init__(init_cfg=init_cfg)
 
     self.face = _AffNetFace()
@@ -308,32 +303,30 @@ class AffNet(BaseModel):
       nn.Linear(128, 2),
     )
 
-    self.loss_fn = LOSSES.build(loss_cfg)
+  def data_fn(self, data_dict: dict):
+    return dict(
+      face=data_dict['face'], rect=data_dict['rect'],
+      reye=data_dict['reye'], leye=data_dict['leye'],
+    )
 
-  def forward(self, mode='tensor', **data_dict):
-    feats_face = self.face(data_dict['face'])
-    feats_rect = self.rect(data_dict['rect'])
+  def forward(self, face: torch.Tensor, rect: torch.Tensor,
+              reye: torch.Tensor, leye: torch.Tensor):
+    feat_face = self.face(face)
+    feat_rect = self.rect(rect)
 
-    factor = torch.cat([feats_face, feats_rect], dim=1)
+    factor = torch.cat([feat_face, feat_rect], dim=1)
 
-    feats_reye = self.eyes(data_dict['reye'], factor)
-    feats_leye = self.eyes(data_dict['leye'], factor)
+    feat_reye = self.eyes(reye, factor)
+    feat_leye = self.eyes(leye, factor)
 
-    feats_eyes = torch.cat([feats_reye, feats_leye], dim=1)
-    feats_eyes = self.eyes_m_1(feats_eyes)
-    feats_eyes = self.eyes_ada(feats_eyes, factor)
-    feats_eyes = self.eyes_m_2(feats_eyes)
-    feats_eyes = torch.flatten(feats_eyes, start_dim=1)
-    feats_eyes = self.eyes_fc(feats_eyes)
+    feat_eyes = torch.cat([feat_reye, feat_leye], dim=1)
+    feat_eyes = self.eyes_m_1(feat_eyes)
+    feat_eyes = self.eyes_ada(feat_eyes, factor)
+    feat_eyes = self.eyes_m_2(feat_eyes)
+    feat_eyes = torch.flatten(feat_eyes, start_dim=1)
+    feat_eyes = self.eyes_fc(feat_eyes)
 
-    feats = torch.cat([feats_face, feats_eyes, feats_rect], dim=1)
-    gazes = self.fc(feats)
+    feat = torch.cat([feat_face, feat_eyes, feat_rect], dim=1)
+    gaze = self.fc(feat)
 
-    if mode == 'loss':
-      loss = self.loss_fn(gazes, data_dict['gaze'])
-      return dict(loss=loss)
-
-    if mode == 'predict':
-      return gazes, data_dict['gaze']
-
-    return gazes
+    return gaze

@@ -1,6 +1,7 @@
-from mmengine.model import BaseModel
+from mmengine.model import BaseModule
 
-from opengaze.registry import MODELS, LOSSES
+from opengaze.registry import MODELS
+from opengaze.model.wrapper import DataFnMixin
 
 import torch as torch
 import torch.nn as nn
@@ -15,7 +16,7 @@ class LayerNorm2d(nn.GroupNorm):
 
 
 @MODELS.register_module()
-class ExpNormLayerResNet(BaseModel):
+class ExpNormLayerResNet(DataFnMixin, BaseModule):
   '''
   Description:
     ResNet50 with normalization layers replaced by the specified type.
@@ -27,10 +28,8 @@ class ExpNormLayerResNet(BaseModel):
     - gaze vector (pitch, yaw), shape: (B, 2)
   '''
 
-  def __init__(self, norm_layer: str, init_cfg=None, loss_cfg=dict(type='L1Loss')):
+  def __init__(self, norm_layer: str, init_cfg: dict = None):
     super(ExpNormLayerResNet, self).__init__(init_cfg=init_cfg)
-
-    self.loss_fn = LOSSES.build(loss_cfg)
 
     assert norm_layer in ['BatchNorm', 'LayerNorm']
     norm_layer = LayerNorm2d if norm_layer == 'LayerNorm' else nn.BatchNorm2d
@@ -43,16 +42,11 @@ class ExpNormLayerResNet(BaseModel):
     ])
     self.fc = backbone.fc
 
-  def forward(self, mode='tensor', **data_dict):
-    feats = self.conv(data_dict['face'])
-    feats = torch.flatten(feats, start_dim=1)
-    feats = self.fc(feats)
+  def data_fn(self, data_dict: dict):
+    return dict(face=data_dict['face'])
 
-    if mode == 'loss':
-      loss = self.loss_fn(feats, data_dict['gaze'])
-      return dict(loss=loss)
+  def forward(self, face: torch.Tensor):
+    feat = self.conv(face).flatten(start_dim=1)
+    gaze = self.fc(feat)
 
-    if mode == 'predict':
-      return feats, data_dict['gaze']
-
-    return feats
+    return gaze
