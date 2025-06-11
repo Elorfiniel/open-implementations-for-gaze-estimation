@@ -1,15 +1,15 @@
 from mmengine.hooks import Hook
-from mmengine.model import is_model_wrapper
+from mmengine.model import is_model_wrapper, BaseModule
 from mmengine.runner import Runner
 
 from typing import Union, Tuple, Dict
-from torch.ao.quantization import disable_observer
+from torch.ao.quantization import convert, disable_observer
 from torch.nn.intrinsic.qat import freeze_bn_stats
 
 from opengaze.registry import HOOKS
-from opengaze.utils.quant import save_traced
 
-import torch
+import os.path as osp
+import torch as torch
 
 
 @HOOKS.register_module()
@@ -58,22 +58,25 @@ class SaveQuantModuleHook(Hook):
     self.model_path = model_path
     self.input_shapes = input_shapes
 
-  def _fetch_model(self, runner: Runner):
+  def _unwrap_module(self, runner: Runner):
+    # Unwrap base model from mmengine runner
     if is_model_wrapper(runner.model):
       model = runner.model.module
     else:
       model = runner.model
 
-    return model
+    # Convert the unwrap model in custom model wrapper
+    model_int8 = convert(model.model.cpu().eval())
+    return model_int8
 
-  def _tensor_mode_inputs(self):
+  def _prepare_example_inputs(self):
     if isinstance(self.input_shapes, (tuple, list)):
-      example_inputs = ['tensor']
+      example_inputs = list()
       for shape in self.input_shapes:
         example_inputs.append(torch.randn(shape))
 
     elif isinstance(self.input_shapes, dict):
-      example_inputs = dict(mode='tensor')
+      example_inputs = dict()
       for name, shape in self.input_shapes.items():
         example_inputs[name] = torch.randn(shape)
 
@@ -82,7 +85,19 @@ class SaveQuantModuleHook(Hook):
 
     return example_inputs
 
+  def _trace_model(self, model: BaseModule, inputs: Union[Tuple, Dict]):
+    if isinstance(inputs, (tuple, list)):
+      script_module = torch.jit.trace(model, example_inputs=inputs)
+    elif isinstance(inputs, dict):
+      script_module = torch.jit.trace(model, example_kwarg_inputs=inputs)
+    else:
+      raise TypeError(f'Expecting a tuple or a dict, but got {type(inputs)}.')
+
+    return script_module
+
   def after_run(self, runner: Runner):
-    model = self._fetch_model(runner).cpu().eval()
-    inputs = self._tensor_mode_inputs()
-    save_traced(model, self.model_path, inputs)
+    wrapped_model = self._unwrap_module(runner)
+    example_inputs = self._prepare_example_inputs()
+    script_module = self._trace_model(wrapped_model, example_inputs)
+
+    torch.jit.save(script_module, osp.abspath(self.model_path))

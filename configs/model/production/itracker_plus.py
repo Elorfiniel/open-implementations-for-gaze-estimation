@@ -20,6 +20,15 @@ itracker_plus = dict(
 
 quant_itracker_plus = dict(
   type='BackboneHead',
-  model_cfg=dict(type='QuantITrackerPlus', init_cfg=None),
+  model_cfg=dict(
+    type='QuantITrackerPlus',
+    qcfg_cfg=dict(type='X86BasicQConfig'),
+    init_cfg=[
+      dict(
+        type='Kaiming', mode='fan_in',
+        layer=['Conv2d', 'Linear'],
+      ),
+    ],
+  ),
   loss_cfg=dict(type='MSELoss'),
 )

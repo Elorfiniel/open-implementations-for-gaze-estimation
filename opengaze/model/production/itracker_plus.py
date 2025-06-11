@@ -1,11 +1,11 @@
 from mmengine.model import BaseModule
-from torch.ao.quantization import QuantStub, DeQuantStub
+from torch.ao.quantization import QuantStub, DeQuantStub, prepare_qat
 from torchvision.models.mobilenetv2 import MobileNetV2
 from torchvision.models.quantization.mobilenetv2 import QuantizableInvertedResidual
 from torchvision.ops.misc import Conv2dNormActivation
 from torchvision.models.quantization.utils import _replace_relu, _fuse_modules
 
-from opengaze.registry import MODELS
+from opengaze.registry import MODELS, QCONFIGS
 from opengaze.model.wrapper import DataFnMixin
 
 import torch as torch
@@ -91,53 +91,56 @@ class ITrackerPlus(DataFnMixin, BaseModule):
     return gaze
 
 
-# class QuantITrackerPlus(ITrackerPlus):
-#   '''Quantized version of ITrackerPlus model, used for static PTQ or QAT.'''
+class QuantITrackerPlus(ITrackerPlus):
+  '''Quantized version of ITrackerPlus model, used for static PTQ or QAT.'''
 
-#   def __init__(self, init_cfg: dict = None):
-#     super(QuantITrackerPlus, self).__init__(init_cfg=init_cfg)
+  def __init__(self, init_cfg: dict = None):
+    super(QuantITrackerPlus, self).__init__(init_cfg=init_cfg)
 
-#     self.quant_face = QuantStub()
-#     self.quant_reye = QuantStub()
-#     self.quant_leye = QuantStub()
-#     self.quant_kpts = QuantStub()
-#     self.dequant = DeQuantStub()
+    self.quant_face = QuantStub()
+    self.quant_reye = QuantStub()
+    self.quant_leye = QuantStub()
+    self.quant_kpts = QuantStub()
+    self.dequant = DeQuantStub()
 
-#     self._prepare_quant_modules()
+  def forward(self, face: torch.Tensor, reye: torch.Tensor,
+              leye: torch.Tensor, kpts: torch.Tensor):
+    gaze = super(QuantITrackerPlus, self).forward(
+      face=self.quant_face(face),
+      reye=self.quant_reye(reye),
+      leye=self.quant_leye(leye),
+      kpts=self.quant_kpts(kpts),
+    )
+    gaze = self.dequant(gaze)
 
-#   def _prepare_quant_modules(self):
-#     reassign = {} # For reassigning quantized modules
-
-#     for name, module in self.named_children():
-#       if type(module) is MobileNetV2:
-#         new_module = MobileNetV2(block=QuantizableInvertedResidual)
-#         new_module.load_state_dict(module.state_dict())
-#         reassign[name] = new_module
-#     for name, module in reassign.items():
-#       self._modules[name] = module
-
-#     _replace_relu(self)
-
-#   def forward(self, face: torch.Tensor, reye: torch.Tensor,
-#               leye: torch.Tensor, kpts: torch.Tensor):
-#     gaze = super(QuantITrackerPlus, self).forward(
-#       face=self.quant_face(face),
-#       reye=self.quant_reye(reye),
-#       leye=self.quant_leye(leye),
-#       kpts=self.quant_kpts(kpts),
-#     )
-#     gaze = self.dequant(gaze)
-
-#     return gaze
-
-#   def fuse_model(self, is_qat: bool = None):
-#     for module in self.modules():
-#       if type(module) is Conv2dNormActivation:
-#         _fuse_modules(module, ['0', '1', '2'], is_qat, inplace=True)
-#       if type(module) is QuantizableInvertedResidual:
-#         module.fuse_model(is_qat)
+    return gaze
 
 
 @MODELS.register_module(name='QuantITrackerPlus')
-def build_quant_itracker_plus(*args, **kwargs):
-  raise NotImplementedError(f'QuantITrackerPlus is not implemented yet.')
+def build_quant_itracker_plus(qcfg_cfg: dict, init_cfg: dict = None):
+  quant_model = QuantITrackerPlus(init_cfg=init_cfg)
+
+  # Convert modules to its quantized version
+  reassign = dict()
+  for name, module in quant_model.named_children():
+    if type(module) is MobileNetV2:
+      new_module = MobileNetV2(block=QuantizableInvertedResidual)
+      new_module.load_state_dict(module.state_dict())
+      reassign[name] = new_module
+  for name, module in reassign.items():
+    quant_model._modules[name] = module
+  _replace_relu(quant_model)
+
+  # Load model weights, if provided, then prepare for quantization
+  quant_model.init_weights()
+  for module in quant_model.modules():
+    if type(module) is Conv2dNormActivation:
+      _fuse_modules(module, ['0', '1', '2'], is_qat=True, inplace=True)
+    if type(module) is QuantizableInvertedResidual:
+      module.fuse_model(is_qat=True)
+
+  # Set quantization configuration
+  qconfig = QCONFIGS.build(qcfg_cfg)
+  qconfig.attach_qconfig(quant_model)
+
+  return prepare_qat(quant_model, inplace=True)

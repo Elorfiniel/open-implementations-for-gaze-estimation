@@ -1,7 +1,6 @@
 from opengaze.engine.transform import BaseTransform
 from opengaze.registry import TRANSFORMS
 from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
-from opengaze.utils.quant import QuantConfigAdapter
 
 from mmengine.config import Config
 from mmengine.runner import Runner
@@ -153,34 +152,45 @@ def build_config(opts: argparse.Namespace):
   # Enable automatic scaling of learning rate
   config['auto_scale_lr'] = dict(enable=True, base_batch_size=opts.batch_size)
 
-  return Config(config, format_python_code=False)
+  return Config(config)
 
 def adapt_config(cfg: Config, opts: argparse.Namespace):
+  # Existing config
+  config = cfg.to_dict()
+
   # Model config
   model_cfgs = ScriptEnv.load_config_dict('configs/model/production/itracker_plus.py')
-  adapter = QuantConfigAdapter(model_cfgs['quant_itracker_plus'], opts.qat_fp32)
-  cfg = adapter.adapt(cfg)
+  quant_model_cfg = model_cfgs['quant_itracker_plus']
+  quant_model_cfg['model_cfg']['init_cfg'] = [
+    dict(
+      type='Pretrained',
+      checkpoint=opts.qat_fp32,
+      prefix='model.',
+      map_location='cpu',
+    ),
+  ]
+  config['model'] = quant_model_cfg
 
   # Hook config
-  cfg.custom_hooks.extend([
+  config['custom_hooks'].extend([
     dict(
       type='FreezeQuantParamsHook',
       freeze_bn=opts.qat_freeze_bn,
       freeze_qt=opts.qat_freeze_qt,
     ),
-    # dict(
-    #   type='SaveQuantModuleHook',
-    #   model_path=opts.qat_int8,
-    #   input_shapes=dict(
-    #     face=(1, 3, 224, 224),
-    #     reye=(1, 3, 224, 224),
-    #     leye=(1, 3, 224, 224),
-    #     kpts=(1, 8),
-    #   ),
-    # ),
+    dict(
+      type='SaveQuantModuleHook',
+      model_path=opts.qat_int8,
+      input_shapes=dict(
+        face=(1, 3, 224, 224),
+        reye=(1, 3, 224, 224),
+        leye=(1, 3, 224, 224),
+        kpts=(1, 8),
+      ),
+    ),
   ])
 
-  return cfg
+  return Config(config)
 
 def main_procedure(opts: argparse.Namespace):
   ScriptEnv.unified_runtime_environment()

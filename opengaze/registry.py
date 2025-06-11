@@ -52,6 +52,9 @@ METRICS = Registry('metric', parent=MMENGINE_METRICS, locations=['opengaze.engin
 # manage evaluator
 EVALUATOR = Registry('evaluator', parent=MMENGINE_EVALUATOR)
 
+# manage qconfig
+QCONFIGS = Registry('qconfig', locations=['opengaze.engine.quant'])
+
 # NOTE: this template does not define less commomly used modules
 # (listed below), whose locations are not specified for Registry
 
