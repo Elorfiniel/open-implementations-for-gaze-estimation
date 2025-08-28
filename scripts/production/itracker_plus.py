@@ -160,16 +160,7 @@ def adapt_config(cfg: Config, opts: argparse.Namespace):
 
   # Model config
   model_cfgs = ScriptEnv.load_config_dict('configs/model/production/itracker_plus.py')
-  quant_model_cfg = model_cfgs['quant_itracker_plus']
-  quant_model_cfg['model_cfg']['init_cfg'] = [
-    dict(
-      type='Pretrained',
-      checkpoint=opts.qat_fp32,
-      prefix='model.',
-      map_location='cpu',
-    ),
-  ]
-  config['model'] = quant_model_cfg
+  config['model'] = model_cfgs['quant_itracker_plus']
 
   # Hook config
   config['custom_hooks'].extend([
@@ -178,19 +169,10 @@ def adapt_config(cfg: Config, opts: argparse.Namespace):
       freeze_bn=opts.qat_freeze_bn,
       freeze_qt=opts.qat_freeze_qt,
     ),
-    dict(
-      type='SaveQuantModuleHook',
-      model_path=opts.qat_int8,
-      input_shapes=dict(
-        face=(1, 3, 224, 224),
-        reye=(1, 3, 224, 224),
-        leye=(1, 3, 224, 224),
-        kpts=(1, 8),
-      ),
-    ),
   ])
 
   return Config(config)
+
 
 def main_procedure(opts: argparse.Namespace):
   ScriptEnv.unified_runtime_environment()
@@ -249,20 +231,12 @@ if __name__ == '__main__':
 
   quant_group = parser.add_argument_group(
     title='quant options',
-    description='config options for quantization.',
+    description='config options for quantization-aware training.',
   )
 
   quant_group.add_argument(
     '--quant', action='store_true', default=False,
     help='enable quantization aware training.',
-  )
-  quant_group.add_argument(
-    '--qat-fp32', type=str, default='',
-    help='(qat) load fp32 model as source.'
-  )
-  quant_group.add_argument(
-    '--qat-int8', type=str, default='',
-    help='(qat) save int8 model as target.'
   )
   quant_group.add_argument(
     '--qat-freeze-bn', type=int, default=-1,
