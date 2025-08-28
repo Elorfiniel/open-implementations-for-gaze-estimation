@@ -1,3 +1,17 @@
+# Tool: trace model after quantization-aware training
+#
+# This tool assumes that quantization-aware training
+# has been performed on a model wrapped inside the
+# base model wrapper, see "opengaze/model/wrapper.py"
+#
+# Usage: python trace_quantized.py \
+#   --config <qat-script-config-file> \
+#   --qat-fp32 <fp32-checkpoint-file> \
+#   --qat-int8 <int8-quantized-model> \
+#   --input-shapes input_name=input_shape
+#
+# Use '--help' to see option descriptions.
+
 from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
 
 from mmengine.config import Config, DictAction
@@ -74,7 +88,7 @@ def build_config(opts: argparse.Namespace):
 
 
 def main_procedure(opts: argparse.Namespace):
-  ScriptEnv.unified_runtime_environment(True)
+  ScriptEnv.unified_runtime_environment()
 
   config = build_config(opts)
   ScriptEnv.merge_config(config, opts)
