@@ -1,14 +1,11 @@
 from mmengine.hooks import Hook
-from mmengine.model import is_model_wrapper, BaseModule
 from mmengine.runner import Runner
 
-from typing import Union, Tuple, Dict
-from torch.ao.quantization import convert, disable_observer
+from torch.ao.quantization import disable_observer
 from torch.nn.intrinsic.qat import freeze_bn_stats
 
 from opengaze.registry import HOOKS
 
-import os.path as osp
 import torch as torch
 
 

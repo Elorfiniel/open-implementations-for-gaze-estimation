@@ -24,5 +24,5 @@ affnet = dict(
       ),
     ],
   ),
-  loss_cfg=dict(type='SmoothL1Loss')
+  loss_cfg=dict(type='SmoothL1Loss'),
 )
