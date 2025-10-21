@@ -15,6 +15,8 @@ setuptools==74.1.2
 scikit-image==0.25.2
 scikit-learn==1.7.1
 tensorboard==2.17.0
+timm==0.9.16
 torch==2.2.0
 torchaudio==2.2.0
+torchinfo==1.8.0
 torchvision==0.17.0
