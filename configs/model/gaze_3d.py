@@ -68,6 +68,20 @@ fullface = dict(
   loss_cfg=dict(type='L1Loss'),
 )
 
+canet = dict(
+  type='BackboneHead',
+  model_cfg=dict(
+    type='CANet',
+    init_cfg=[
+      dict(
+        type='Kaiming', mode='fan_in',
+        layer=['Conv2d', 'Linear'],
+      ),
+    ],
+  ),
+  loss_cfg=dict(type='L1Loss'),
+)
+
 xgaze224 = dict(
   type='BackboneHead',
   model_cfg=dict(

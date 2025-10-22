@@ -1,4 +1,5 @@
 from mmengine.model import BaseModule
+from timm.layers import ConvNormAct
 
 from opengaze.registry import MODELS
 from opengaze.model.wrapper import DataFnMixin
@@ -274,6 +275,181 @@ class FullFace(DataFnMixin, BaseModule):
     feat = feat.flatten(start_dim=1)
 
     gaze = self.fc(feat)
+
+    return gaze
+
+
+class _CANetFace(nn.Module):
+  def __init__(self, out_features: int = 256):
+    super(_CANetFace, self).__init__()
+
+    conv_kwargs = dict(
+      kernel_size=3, stride=1, padding=1,
+      norm_layer=nn.BatchNorm2d,
+      act_layer=nn.ReLU,
+      act_kwargs=dict(inplace=True),
+    )
+    self.conv = nn.Sequential(
+      ConvNormAct(in_channels=3, out_channels=64, **conv_kwargs),
+      ConvNormAct(in_channels=64, out_channels=64, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=64, out_channels=128, **conv_kwargs),
+      ConvNormAct(in_channels=128, out_channels=128, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=128, out_channels=256, **conv_kwargs),
+      ConvNormAct(in_channels=256, out_channels=256, **conv_kwargs),
+      ConvNormAct(in_channels=256, out_channels=256, **conv_kwargs),
+      ConvNormAct(in_channels=256, out_channels=256, **conv_kwargs),
+      ConvNormAct(in_channels=256, out_channels=256, **conv_kwargs),
+      ConvNormAct(in_channels=256, out_channels=256, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=256, out_channels=512, **conv_kwargs),
+      ConvNormAct(in_channels=512, out_channels=512, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=512, out_channels=1024, **conv_kwargs),
+      nn.AdaptiveAvgPool2d(output_size=(1, 1)),
+    )
+    self.fc = nn.Sequential(
+      nn.Linear(in_features=1024, out_features=out_features),
+      nn.ReLU(inplace=True),
+    )
+
+  def forward(self, feats: torch.Tensor):
+    n, c, h, w = feats.size()
+
+    feats = self.conv(feats).view(n, -1)
+    feats = self.fc(feats)
+
+    return feats
+
+class _CANetEyes(nn.Module):
+  def __init__(self, out_features: int = 256):
+    super(_CANetEyes, self).__init__()
+
+    conv_kwargs = dict(
+      kernel_size=3, stride=1, padding=1,
+      norm_layer=nn.BatchNorm2d,
+      act_layer=nn.ReLU,
+      act_kwargs=dict(inplace=True),
+    )
+    self.conv = nn.Sequential(
+      ConvNormAct(in_channels=3, out_channels=64, **conv_kwargs),
+      ConvNormAct(in_channels=64, out_channels=64, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=64, out_channels=128, **conv_kwargs),
+      ConvNormAct(in_channels=128, out_channels=128, **conv_kwargs),
+      ConvNormAct(in_channels=128, out_channels=128, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=128, out_channels=256, **conv_kwargs),
+      ConvNormAct(in_channels=256, out_channels=256, **conv_kwargs),
+      ConvNormAct(in_channels=256, out_channels=256, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=256, out_channels=512, **conv_kwargs),
+      nn.MaxPool2d(kernel_size=2, stride=2),
+      ConvNormAct(in_channels=512, out_channels=1024, **conv_kwargs),
+      nn.AdaptiveAvgPool2d(output_size=(1, 1)),
+    )
+    self.fc = nn.Sequential(
+      nn.Linear(in_features=1024, out_features=out_features),
+      nn.ReLU(inplace=True),
+    )
+
+  def forward(self, feats: torch.Tensor):
+    n, c, h, w = feats.size()
+
+    feats = self.conv(feats).view(n, -1)
+    feats = self.fc(feats)
+
+    return feats
+
+class _CANetHead(nn.Module):
+  def __init__(self, num_features: int = 256):
+    super(_CANetHead, self).__init__()
+
+    self.gate = nn.GRU(
+      input_size=num_features,
+      hidden_size=num_features,
+      num_layers=1,
+      batch_first=True,
+    )
+    self.fc = nn.Linear(in_features=num_features, out_features=2)
+
+  def forward(self, feat: torch.Tensor, feat_hidden: torch.Tensor = None):
+    _, hidden = self.gate(feat, feat_hidden)
+    _, n, c = hidden.size()
+    gaze = self.fc(hidden.view(n, c))
+
+    return gaze, hidden
+
+class _CANetAttention(nn.Module):
+  def __init__(self, num_features: int = 256):
+    super(_CANetAttention, self).__init__()
+
+    self.face_fc = nn.Linear(in_features=num_features, out_features=num_features)
+    self.eyes_fc = nn.Linear(in_features=num_features, out_features=num_features)
+
+    self.score_fc = nn.Linear(in_features=num_features, out_features=1)
+
+  def forward(self, feat_face: torch.Tensor, feat_reye: torch.Tensor, feat_leye: torch.Tensor):
+    feat_f = self.face_fc(feat_face)
+    feat_r = self.eyes_fc(feat_reye)
+    feat_l = self.eyes_fc(feat_leye)
+
+    feat_r = nn.functional.tanh(feat_f + feat_r)
+    mr = self.score_fc(feat_r)
+    feat_l = nn.functional.tanh(feat_f + feat_l)
+    ml = self.score_fc(feat_l)
+
+    scores = torch.cat([mr, ml], dim=1)
+    wr, wl = torch.split(scores, 1, dim=1)
+    feat_eyes = wr * feat_reye + wl * feat_leye
+
+    return feat_eyes
+
+@MODELS.register_module()
+class CANet(DataFnMixin, BaseModule):
+  '''
+  Bibliography:
+    Cheng, Yihua, Shiyao Huang, Fei Wang, Chen Qian, and Feng Lu.
+    "A Coarse-to-Fine Adaptive Network for Appearance-Based Gaze Estimation."
+
+  Arxiv:
+    https://arxiv.org/abs/2001.00187
+
+  Input:
+    - normalized face patch, shape: (B, 3, 224, 224)
+    - normalized reye patch, shape: (B, 3, 36, 60)
+    - normalized leye patch, shape: (B, 3, 36, 60)
+
+  Output:
+    - gaze vector (pitch, yaw), shape: (B, 2)
+  '''
+
+  def __init__(self, init_cfg: dict = None):
+    super(CANet, self).__init__(init_cfg=init_cfg)
+
+    self.face = _CANetFace(out_features=256)
+    self.face_head = _CANetHead(num_features=256)
+
+    self.reye = _CANetEyes(out_features=256)
+    self.leye = _CANetEyes(out_features=256)
+    self.eyes_head = _CANetHead(num_features=256)
+
+    self.att = _CANetAttention(num_features=256)
+
+  def data_fn(self, data_dict: dict):
+    return dict(face=data_dict['face'], reye=data_dict['reye'], leye=data_dict['leye'])
+
+  def forward(self, face: torch.Tensor, reye: torch.Tensor, leye: torch.Tensor):
+    feat_face = self.face(face).unsqueeze(dim=1)
+    feat_reye = self.reye(reye).unsqueeze(dim=1)
+    feat_leye = self.leye(leye).unsqueeze(dim=1)
+
+    gaze_b, h1 = self.face_head(feat_face)
+    feat_face_hidden = h1.squeeze(dim=0).unsqueeze(dim=1)
+    feat_eyes = self.att(feat_face_hidden, feat_reye, feat_leye)
+    gaze_r, h2 = self.eyes_head(feat_eyes, h1)
+    gaze = gaze_b + gaze_r
 
     return gaze
 
