@@ -30,6 +30,27 @@ gazenet = dict(
   loss_cfg=dict(type='MSELoss'),
 )
 
+dilatednet = dict(
+  type='BackboneHead',
+  model_cfg=dict(
+    type='DilatedNet',
+    init_cfg=[
+      dict(
+        type='Kaiming', mode='fan_in', layer=None,
+        override=[
+          dict(name='face_conv_2'),
+          dict(name='face_fc'),
+          dict(name='eyes_conv_2'),
+          dict(name='eyes_fc'),
+          dict(name='fc'),
+        ],
+      ),
+    ],
+    p_dropout=0.1,
+  ),
+  loss_cfg=dict(type='MSELoss'),
+)
+
 fullface = dict(
   type='BackboneHead',
   model_cfg=dict(
