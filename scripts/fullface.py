@@ -15,7 +15,7 @@ def build_config(opts: argparse.Namespace):
   config['model'] = model_cfgs['fullface']
 
   # Dataset config
-  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpiifacegaze.py')
+  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpii_facegaze.py')
   config['train_dataloader'] = dict(
     dataset=dataset_cfgs['train'],
     num_workers=opts.num_workers,

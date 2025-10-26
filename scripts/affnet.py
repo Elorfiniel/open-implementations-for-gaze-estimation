@@ -35,7 +35,7 @@ def build_config(opts: argparse.Namespace):
   config['model'] = model_cfgs['affnet']
 
   # Dataset config
-  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/gazecapture.py')
+  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mit_gaze_capture.py')
 
   pipeline = [
     dict(type='AffNetDataAdapter'),

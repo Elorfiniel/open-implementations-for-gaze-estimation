@@ -46,7 +46,7 @@ def build_config(opts: argparse.Namespace):
   config['model'] = model_cfgs['itracker']
 
   # Dataset config
-  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/gazecapture.py')
+  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mit_gaze_capture.py')
 
   pipeline = [dict(type='ITrackerDataAdapter', grid_size=25)]
   for cfg_name in ['train', 'valid', 'test']:

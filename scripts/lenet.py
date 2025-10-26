@@ -16,7 +16,7 @@ def build_config(opts: argparse.Namespace):
   config['model'] = model_cfgs['lenet']
 
   # Dataset config
-  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpiigaze.py')
+  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpii_gaze.py')
   dataset_cfgs['train']['test_pp'] = f'p{opts.test_pp:02d}'
   dataset_cfgs['valid']['test_pp'] = f'p{opts.test_pp:02d}'
   dataset_cfgs['train']['eval_subset'] = opts.eval_subset
