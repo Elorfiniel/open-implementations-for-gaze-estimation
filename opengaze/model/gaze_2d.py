@@ -110,9 +110,9 @@ class ITracker(DataFnMixin, BaseModule):
     return gaze
 
 
-class _AffNetSELayer(nn.Module):
+class _AFFNetSELayer(nn.Module):
   def __init__(self, n_channels: int, reduction: int):
-    super(_AffNetSELayer, self).__init__()
+    super(_AFFNetSELayer, self).__init__()
 
     self.gap = nn.AdaptiveAvgPool2d(1)
     self.se = nn.Sequential(
@@ -131,9 +131,9 @@ class _AffNetSELayer(nn.Module):
 
     return se_feats
 
-class _AffNetAdaGN(nn.Module):
+class _AFFNetAdaGN(nn.Module):
   def __init__(self, in_features: int, n_groups: int, n_channels: int):
-    super(_AffNetAdaGN, self).__init__()
+    super(_AFFNetAdaGN, self).__init__()
 
     self.n_groups = n_groups
     self.fc = nn.Sequential(
@@ -153,9 +153,9 @@ class _AffNetAdaGN(nn.Module):
 
     return feats
 
-class _AffNetFace(nn.Module):
+class _AFFNetFace(nn.Module):
   def __init__(self):
-    super(_AffNetFace, self).__init__()
+    super(_AFFNetFace, self).__init__()
 
     self.conv = nn.Sequential(
       nn.Conv2d(3, 48, kernel_size=5, stride=2, padding=0),
@@ -172,15 +172,15 @@ class _AffNetFace(nn.Module):
       nn.Conv2d(128, 192, kernel_size=3, stride=1, padding=1),
       nn.GroupNorm(16, 192),
       nn.ReLU(inplace=True),
-      _AffNetSELayer(192, 16),
+      _AFFNetSELayer(192, 16),
       nn.Conv2d(192, 128, kernel_size=3, stride=2, padding=0),
       nn.GroupNorm(16, 128),
       nn.ReLU(inplace=True),
-      _AffNetSELayer(128, 16),
+      _AFFNetSELayer(128, 16),
       nn.Conv2d(128, 64, kernel_size=3, stride=2, padding=0),
       nn.GroupNorm(8, 64),
       nn.ReLU(inplace=True),
-      _AffNetSELayer(64, 16),
+      _AFFNetSELayer(64, 16),
     )
     self.fc = nn.Sequential(
       nn.Linear(64*5*5, 128),
@@ -197,9 +197,9 @@ class _AffNetFace(nn.Module):
 
     return feats
 
-class _AffNetEyes(nn.Module):
+class _AFFNetEyes(nn.Module):
   def __init__(self):
-    super(_AffNetEyes, self).__init__()
+    super(_AFFNetEyes, self).__init__()
 
     self.feats_1_1 = nn.Sequential(
       nn.Conv2d(3, 24, kernel_size=5, stride=2, padding=0),
@@ -210,7 +210,7 @@ class _AffNetEyes(nn.Module):
     self.feats_1_2 = nn.Sequential(
       nn.ReLU(inplace=True),
       nn.MaxPool2d(kernel_size=3, stride=2),
-      _AffNetSELayer(48, 16),
+      _AFFNetSELayer(48, 16),
       nn.Conv2d(48, 64, kernel_size=5, stride=1, padding=1),
     )
     self.feats_1_3 = nn.Sequential(
@@ -221,15 +221,15 @@ class _AffNetEyes(nn.Module):
     self.feats_2_1 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
     self.feats_2_2 = nn.Sequential(
       nn.ReLU(inplace=True),
-      _AffNetSELayer(128, 16),
+      _AFFNetSELayer(128, 16),
       nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
     )
     self.feats_2_3 = nn.ReLU(inplace=True)
 
-    self.adagn_1_1 = _AffNetAdaGN(128, 8, 48)
-    self.adagn_1_2 = _AffNetAdaGN(128, 8, 64)
-    self.adagn_2_1 = _AffNetAdaGN(128, 8, 128)
-    self.adagn_2_2 = _AffNetAdaGN(128, 8, 64)
+    self.adagn_1_1 = _AFFNetAdaGN(128, 8, 48)
+    self.adagn_1_2 = _AFFNetAdaGN(128, 8, 64)
+    self.adagn_2_1 = _AFFNetAdaGN(128, 8, 128)
+    self.adagn_2_2 = _AFFNetAdaGN(128, 8, 64)
 
   def forward(self, feats: torch.Tensor, factor: torch.Tensor):
     feats = self.adagn_1_1(self.feats_1_1(feats), factor)
@@ -245,7 +245,7 @@ class _AffNetEyes(nn.Module):
     return feats
 
 @MODELS.register_module()
-class AffNet(DataFnMixin, BaseModule):
+class AFFNet(DataFnMixin, BaseModule):
   '''
   Bibliography:
     Bao, Yiwei, Yihua Cheng, Yunfei Liu, and Feng Lu.
@@ -265,9 +265,9 @@ class AffNet(DataFnMixin, BaseModule):
   '''
 
   def __init__(self, init_cfg: dict = None):
-    super(AffNet, self).__init__(init_cfg=init_cfg)
+    super(AFFNet, self).__init__(init_cfg=init_cfg)
 
-    self.face = _AffNetFace()
+    self.face = _AFFNetFace()
 
     self.rect = nn.Sequential(
       nn.Linear(12, 64),
@@ -280,17 +280,17 @@ class AffNet(DataFnMixin, BaseModule):
       nn.LeakyReLU(inplace=True),
     )
 
-    self.eyes = _AffNetEyes()
+    self.eyes = _AFFNetEyes()
 
     self.eyes_m_1 = nn.Sequential(
-      _AffNetSELayer(256, 16),
+      _AFFNetSELayer(256, 16),
       nn.Conv2d(256, 64, kernel_size=3, stride=2, padding=1),
     )
     self.eyes_m_2 = nn.Sequential(
       nn.ReLU(inplace=True),
-      _AffNetSELayer(64, 16),
+      _AFFNetSELayer(64, 16),
     )
-    self.eyes_ada = _AffNetAdaGN(128, 8, 64)
+    self.eyes_ada = _AFFNetAdaGN(128, 8, 64)
 
     self.eyes_fc = nn.Sequential(
       nn.Linear(64*5*5, 128),

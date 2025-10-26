@@ -9,14 +9,14 @@ import argparse
 
 def build_config(opts: argparse.Namespace):
   # Default runtime config
-  config = ScriptEnv.load_config_dict('configs/default_runtime.py')
+  config = ScriptEnv.load_config_dict('configs/default-runtime.py')
 
   # Model config
-  model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze_3d.py')
-  config['model'] = model_cfgs['gazenet']
+  model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze-3d.py')
+  config['model'] = model_cfgs['GazeNet']
 
   # Dataset config
-  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpii_gaze.py')
+  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpii-gaze.py')
   dataset_cfgs['train']['test_pp'] = f'p{opts.test_pp:02d}'
   dataset_cfgs['valid']['test_pp'] = f'p{opts.test_pp:02d}'
   dataset_cfgs['train']['eval_subset'] = opts.eval_subset
@@ -101,7 +101,7 @@ def main_procedure(opts: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='run script for gazenet baseline.')
+  parser = argparse.ArgumentParser(description='run script for GazeNet baseline.')
 
   parser.add_argument(
     '--mode', choices=['train', 'test'], default='train',

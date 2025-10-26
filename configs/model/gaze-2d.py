@@ -1,5 +1,5 @@
 # model settings
-itracker = dict(
+ITracker = dict(
   type='BackboneHead',
   model_cfg=dict(
     type='ITracker',
@@ -13,10 +13,10 @@ itracker = dict(
   loss_cfg=dict(type='MSELoss'),
 )
 
-affnet = dict(
+AFFNet = dict(
   type='BackboneHead',
   model_cfg=dict(
-    type='AffNet',
+    type='AFFNet',
     init_cfg=[
       dict(
         type='Kaiming', mode='fan_in',

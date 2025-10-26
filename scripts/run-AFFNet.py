@@ -1,21 +1,51 @@
+from opengaze.engine.transform import BaseTransform
+from opengaze.registry import TRANSFORMS
 from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
 
 from mmengine.config import Config
 from mmengine.runner import Runner
+from torchvision.transforms import functional, InterpolationMode
 
 import argparse
 
 
+@TRANSFORMS.register_module()
+class AFFNetDataAdapter(BaseTransform):
+  def transform(self, results):
+    results['rect'] = results['bbox']
+    results['reye'] = functional.resize(
+      functional.hflip(results['reye']),
+      size=(112, 112),
+      interpolation=InterpolationMode.BICUBIC,
+    )
+    results['leye'] = functional.resize(
+      results['leye'],
+      size=(112, 112),
+      interpolation=InterpolationMode.BICUBIC,
+    )
+    return results
+
+
 def build_config(opts: argparse.Namespace):
   # Default runtime config
-  config = ScriptEnv.load_config_dict('configs/default_runtime.py')
+  config = ScriptEnv.load_config_dict('configs/default-runtime.py')
 
   # Model config
-  model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze_3d.py')
-  config['model'] = model_cfgs['xgaze224']
+  model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze-2d.py')
+  config['model'] = model_cfgs['AFFNet']
 
   # Dataset config
-  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/eth_xgaze_224.py')
+  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mit-gaze-capture.py')
+
+  pipeline = [
+    dict(type='AFFNetDataAdapter'),
+  ]
+  dataset_cfgs['train'].update(pipeline=pipeline)
+
+  pipeline = [dict(type='AFFNetDataAdapter')]
+  for cfg_name in ['valid', 'test']:
+    dataset_cfgs[cfg_name].update(pipeline=pipeline)
+
   config['train_dataloader'] = dict(
     dataset=dataset_cfgs['train'],
     num_workers=opts.num_workers,
@@ -30,11 +60,17 @@ def build_config(opts: argparse.Namespace):
     sampler=dict(type='DefaultSampler', shuffle=False),
     collate_fn=dict(type='default_collate'),
   )
-  config['test_dataloader'] = config['val_dataloader']
+  config['test_dataloader'] = dict(
+    dataset=dataset_cfgs['test'],
+    num_workers=opts.num_workers,
+    batch_size=opts.batch_size,
+    sampler=dict(type='DefaultSampler', shuffle=False),
+    collate_fn=dict(type='default_collate'),
+  )
 
   # Evaluator config
-  config['val_evaluator'] = dict(type='AngularError')
-  config['test_evaluator'] = dict(type='AngularError')
+  config['val_evaluator'] = dict(type='DistanceError')
+  config['test_evaluator'] = dict(type='DistanceError')
 
   # Loop config
   config['train_cfg'] = dict(
@@ -45,7 +81,7 @@ def build_config(opts: argparse.Namespace):
   config['test_cfg'] = dict(type='TestLoop')
 
   # Optimizer config
-  optimizer = dict(type='Adam', lr=1e-4)
+  optimizer = dict(type='Adam', lr=1e-3, weight_decay=5e-3)
   config['optim_wrapper'] = dict(type='OptimWrapper', optimizer=optimizer)
 
   # Scheduler config
@@ -90,7 +126,7 @@ def main_procedure(opts: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='run script for xgaze224 baseline.')
+  parser = argparse.ArgumentParser(description='run script for AFFNet baseline.')
 
   parser.add_argument(
     '--mode', choices=['train', 'test'], default='train',
@@ -107,15 +143,15 @@ if __name__ == '__main__':
     help='number of workers for pytorch dataloader.',
   )
   config_group.add_argument(
-    '--batch-size', type=int, default=50,
+    '--batch-size', type=int, default=100,
     help='batch size for pytorch dataloader.',
   )
   config_group.add_argument(
-    '--max-epochs', type=int, default=25,
+    '--max-epochs', type=int, default=20,
     help='max number of epochs for training.',
   )
   config_group.add_argument(
-    '--step-size', type=int, default=10,
+    '--step-size', type=int, default=8,
     help='step size for learning rate scheduler.',
   )
   config_group.add_argument(

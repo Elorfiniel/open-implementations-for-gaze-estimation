@@ -54,7 +54,7 @@ Please note that while efforts have been made to faithfully reproduce the models
   - face grid (B, 625)
 - **Output**: point of gaze (gx, gy) with shape (B, 2)
 
-#### AffNet
+#### AFFNet
 - **Paper**: Bao, Yiwei, et al. "Adaptive Feature Fusion Network for Gaze Tracking in Mobile Tablets." arXiv 2021.
 - **ArXiv**: https://arxiv.org/abs/2103.11119
 - **Input**:

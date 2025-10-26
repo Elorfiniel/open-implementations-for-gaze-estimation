@@ -1,5 +1,5 @@
 # model settings
-lenet = dict(
+LeNet = dict(
   type='BackboneHead',
   model_cfg=dict(
     type='LeNet',
@@ -13,7 +13,7 @@ lenet = dict(
   loss_cfg=dict(type='MSELoss'),
 )
 
-gazenet = dict(
+GazeNet = dict(
   type='BackboneHead',
   model_cfg=dict(
     type='GazeNet',
@@ -30,7 +30,7 @@ gazenet = dict(
   loss_cfg=dict(type='MSELoss'),
 )
 
-dilated_net = dict(
+DilatedNet = dict(
   type='BackboneHead',
   model_cfg=dict(
     type='DilatedNet',
@@ -51,7 +51,7 @@ dilated_net = dict(
   loss_cfg=dict(type='MSELoss'),
 )
 
-fullface = dict(
+FullFace = dict(
   type='BackboneHead',
   model_cfg=dict(
     type='FullFace',
@@ -68,7 +68,7 @@ fullface = dict(
   loss_cfg=dict(type='L1Loss'),
 )
 
-canet = dict(
+CANet = dict(
   type='BackboneHead',
   model_cfg=dict(
     type='CANet',
@@ -82,7 +82,7 @@ canet = dict(
   loss_cfg=dict(type='L1Loss'),
 )
 
-xgaze224 = dict(
+XGaze224 = dict(
   type='BackboneHead',
   model_cfg=dict(
     type='XGaze224',
@@ -96,9 +96,10 @@ xgaze224 = dict(
   loss_cfg=dict(type='L1Loss'),
 )
 
-gaze_tr = dict(
+GazeTR = dict(
   type='BackboneHead',
   model_cfg=dict(
+    type='GazeTR',
     init_cfg=[
       dict(
         type='Kaiming', mode='fan_in',

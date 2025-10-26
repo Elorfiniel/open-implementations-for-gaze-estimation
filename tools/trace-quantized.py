@@ -4,7 +4,7 @@
 # has been performed on a model wrapped inside the
 # base model wrapper, see "opengaze/model/wrapper.py"
 #
-# Usage: python trace_quantized.py \
+# Usage: python trace-quantized.py \
 #   --config <qat-script-config-file> \
 #   --qat-fp32 <fp32-checkpoint-file> \
 #   --qat-int8 <int8-quantized-model> \
@@ -75,7 +75,7 @@ def trace_quant_model(model_int8: nn.Module, example_inputs: Union[Dict, List]):
 
 def build_config(opts: argparse.Namespace):
   # Default runtime config
-  config = ScriptEnv.load_config_dict('configs/default_runtime.py')
+  config = ScriptEnv.load_config_dict('configs/default-runtime.py')
 
   # Config from quantization-aware training script
   train_config = ScriptEnv.load_config_dict(opts.config)

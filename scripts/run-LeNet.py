@@ -1,4 +1,5 @@
 from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
+from opengaze.runtime.cmdargs import str2bool
 
 from mmengine.config import Config
 from mmengine.runner import Runner
@@ -8,14 +9,18 @@ import argparse
 
 def build_config(opts: argparse.Namespace):
   # Default runtime config
-  config = ScriptEnv.load_config_dict('configs/default_runtime.py')
+  config = ScriptEnv.load_config_dict('configs/default-runtime.py')
 
   # Model config
-  model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze_3d.py')
-  config['model'] = model_cfgs['fullface']
+  model_cfgs = ScriptEnv.load_config_dict('configs/model/gaze-3d.py')
+  config['model'] = model_cfgs['LeNet']
 
   # Dataset config
-  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpii_facegaze.py')
+  dataset_cfgs = ScriptEnv.load_config_dict('configs/dataset/mpii-gaze.py')
+  dataset_cfgs['train']['test_pp'] = f'p{opts.test_pp:02d}'
+  dataset_cfgs['valid']['test_pp'] = f'p{opts.test_pp:02d}'
+  dataset_cfgs['train']['eval_subset'] = opts.eval_subset
+  dataset_cfgs['valid']['eval_subset'] = opts.eval_subset
   config['train_dataloader'] = dict(
     dataset=dataset_cfgs['train'],
     num_workers=opts.num_workers,
@@ -45,16 +50,16 @@ def build_config(opts: argparse.Namespace):
   config['test_cfg'] = dict(type='TestLoop')
 
   # Optimizer config
-  optimizer = dict(type='Adam', lr=1e-5, betas=(0.90, 0.95))
+  optimizer = dict(type='Adam', lr=1e-3, betas=(0.90, 0.95))
   config['optim_wrapper'] = dict(type='OptimWrapper', optimizer=optimizer)
 
   # Scheduler config
-  config['param_scheduler'] = dict(
+  config['param_scheduler'] = [
     dict(
       type='StepLR', by_epoch=True, begin=0,
       step_size=opts.step_size, gamma=opts.gamma,
     ),
-  )
+  ]
 
   # Hook config
   config['custom_hooks'] = [
@@ -90,7 +95,7 @@ def main_procedure(opts: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='run script for fullface baseline.')
+  parser = argparse.ArgumentParser(description='run script for LeNet baseline.')
 
   parser.add_argument(
     '--mode', choices=['train', 'test'], default='train',
@@ -107,11 +112,11 @@ if __name__ == '__main__':
     help='number of workers for pytorch dataloader.',
   )
   config_group.add_argument(
-    '--batch-size', type=int, default=50,
+    '--batch-size', type=int, default=100,
     help='batch size for pytorch dataloader.',
   )
   config_group.add_argument(
-    '--max-epochs', type=int, default=25,
+    '--max-epochs', type=int, default=30,
     help='max number of epochs for training.',
   )
   config_group.add_argument(
@@ -121,6 +126,16 @@ if __name__ == '__main__':
   config_group.add_argument(
     '--gamma', type=float, default=0.1,
     help='gamma for learning rate scheduler.',
+  )
+
+  config_group.add_argument(
+    '--test-pp', type=int, default=0,
+    choices=list(range(0, 15)),
+    help='person id for leave-one-out test',
+  )
+  config_group.add_argument(
+    '--eval-subset', type=str2bool, default='true',
+    help='whether to use evaluation subset',
   )
 
   config_group.add_argument(
