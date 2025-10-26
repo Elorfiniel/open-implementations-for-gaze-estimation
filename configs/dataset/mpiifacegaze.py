@@ -7,7 +7,7 @@ transform = [
 # dataset settings
 train = dict(
   type='MPIIFaceGaze',
-  root='data/mpiifacegaze',
+  root='data/mpii-facegaze',
   train=True,
   test_pp='p00',
   transform=transform,
@@ -15,7 +15,7 @@ train = dict(
 
 valid = dict(
   type='MPIIFaceGaze',
-  root='data/mpiifacegaze',
+  root='data/mpii-facegaze',
   train=False,
   test_pp='p00',
   transform=transform,

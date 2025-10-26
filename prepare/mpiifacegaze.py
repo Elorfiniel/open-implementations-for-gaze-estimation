@@ -15,8 +15,8 @@ import scipy.io as sio
 
 
 rt_logger = runtime_logger(
-  name='mpiifacegaze',
-  log_file=ScriptEnv.log_path('prepare-mpiifacegaze.log'),
+  name='mpii-facegaze',
+  log_file=ScriptEnv.log_path('prepare-mpii-facegaze.log'),
 )
 
 
@@ -211,9 +211,9 @@ def process_tasks(dataset_path, opt_folder):
 
 def main_procedure(cmdargs: argparse.Namespace):
   dataset_path = osp.abspath(cmdargs.dataset_path)
-  rt_logger.info(f'mpiifacegaze dataset: "{dataset_path}"')
+  rt_logger.info(f'mpii-facegaze dataset: "{dataset_path}"')
 
-  data_folder = ScriptEnv.data_path('mpiifacegaze')
+  data_folder = ScriptEnv.data_path('mpii-facegaze')
   os.makedirs(data_folder, exist_ok=True)
   rt_logger.info(f'processed data: "{data_folder}"')
 

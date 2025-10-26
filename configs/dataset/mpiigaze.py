@@ -6,7 +6,7 @@ transform = [
 # dataset settings
 train = dict(
   type='MPIIGaze',
-  root='data/mpiigaze',
+  root='data/mpii-gaze',
   train=True,
   test_pp='p00',
   eval_subset=True,
@@ -15,7 +15,7 @@ train = dict(
 
 valid = dict(
   type='MPIIGaze',
-  root='data/mpiigaze',
+  root='data/mpii-gaze',
   train=False,
   test_pp='p00',
   eval_subset=True,

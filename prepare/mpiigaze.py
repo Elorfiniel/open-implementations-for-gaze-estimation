@@ -15,8 +15,8 @@ import shutil
 
 
 rt_logger = runtime_logger(
-  name='mpiigaze',
-  log_file=ScriptEnv.log_path('prepare-mpiigaze.log'),
+  name='mpii-gaze',
+  log_file=ScriptEnv.log_path('prepare-mpii-gaze.log'),
 )
 
 
@@ -210,9 +210,9 @@ def copy_evaluation_samples(dataset_path, opt_folder):
 
 def main_procedure(cmdargs: argparse.Namespace):
   dataset_path = osp.abspath(cmdargs.dataset_path)
-  rt_logger.info(f'mpiigaze dataset: "{dataset_path}"')
+  rt_logger.info(f'mpii-gaze dataset: "{dataset_path}"')
 
-  data_folder = ScriptEnv.data_path('mpiigaze')
+  data_folder = ScriptEnv.data_path('mpii-gaze')
   os.makedirs(data_folder, exist_ok=True)
   rt_logger.info(f'processed data: "{data_folder}"')
 

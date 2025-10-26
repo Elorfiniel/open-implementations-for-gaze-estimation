@@ -7,7 +7,7 @@ transform = [
 # dataset settings
 train = dict(
   type='GazeCapture',
-  root='data/gazecapture',
+  root='data/mit-gaze-capture',
   split='train',
   devices=[
     'iPad 2', 'iPad 3', 'iPad 4', 'iPad Air', 'iPad Air 2', 'iPad Mini', 'iPad Pro',
@@ -19,7 +19,7 @@ train = dict(
 
 valid = dict(
   type='GazeCapture',
-  root='data/gazecapture',
+  root='data/mit-gaze-capture',
   split='val',
   devices=[
     'iPad 2', 'iPad 3', 'iPad 4', 'iPad Air', 'iPad Air 2', 'iPad Mini', 'iPad Pro',
@@ -31,7 +31,7 @@ valid = dict(
 
 test = dict(
   type='GazeCapture',
-  root='data/gazecapture',
+  root='data/mit-gaze-capture',
   split='test',
   devices=[
     'iPad 2', 'iPad 3', 'iPad 4', 'iPad Air', 'iPad Air 2', 'iPad Mini', 'iPad Pro',
