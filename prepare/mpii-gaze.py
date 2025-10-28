@@ -55,7 +55,7 @@ class Camera2Normal:
 
     # Revisiting Data Normalization: discard the scaling component `S_x`
     gaze = self._unit_vector(np.dot(R2, tgt - look_at))
-    pose = self._unit_vector(cv2.Rodrigues(np.dot(R2, R1))[0].reshape((3, )))
+    pose = cv2.Rodrigues(np.dot(R2, R1))[0].reshape((3, ))
 
     return warp, gaze, pose
 
@@ -122,12 +122,12 @@ def process_pp_dd(persons_folder, pp, dd, opt_folder):
   date_folder = osp.join(persons_folder, pp, dd)
   label_file = load_mpii_annot_pp_dd(date_folder)
 
-  # Create output folder for current person
-  person_opt_folder = osp.join(opt_folder, pp)
-  os.makedirs(person_opt_folder, exist_ok=True)
+  # Create output folder for current person and date
+  pp_dd_opt_folder = osp.join(opt_folder, pp, dd)
+  os.makedirs(pp_dd_opt_folder, exist_ok=True)
 
   # Create hdf datasets
-  hdf_file = h5py.File(osp.join(person_opt_folder, f'{dd}.h5'), 'w')
+  hdf_file = h5py.File(osp.join(pp_dd_opt_folder, f'annot.h5'), 'w')
   leye_img = hdf_file.create_dataset(
     'leye-img', shape=(len(label_file), 36, 60),
     dtype=np.uint8, chunks=(1, 36, 60),

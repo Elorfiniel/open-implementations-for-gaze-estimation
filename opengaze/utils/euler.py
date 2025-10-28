@@ -83,7 +83,7 @@ def gaze_3d_2d_t(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor):
 
 
 def pose_3d_2d_a(x: float, y: float, z: float):
-  '''Convert 3D gaze (x, y, z) to 2D gaze (pitch, yaw).
+  '''Convert 3D pose (x, y, z) to 2D pose (pitch, yaw).
 
   Args:
     `x`: x coordinate in reference frame.

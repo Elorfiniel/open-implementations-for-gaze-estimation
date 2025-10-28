@@ -105,7 +105,7 @@ class _MPIIGazePP(Dataset):
         lines = [line.strip() for line in fp]
         l_eval, r_eval = self._parse_eval_lines(lines)
 
-    hdf_filenames = sorted(os.listdir(root))
+    dates = sorted(os.listdir(root))
 
     self.data = {
       'leye-img': [],
@@ -116,10 +116,8 @@ class _MPIIGazePP(Dataset):
       'reye-pose': [],
     } # Load all data in memory (~1GB)
 
-    for hdf_filename in hdf_filenames:
-      with h5py.File(osp.join(root, hdf_filename), 'r', swmr=True) as hdf_file:
-        dd = osp.splitext(hdf_filename)[0]
-
+    for dd in dates:
+      with h5py.File(osp.join(root, dd, 'annot.h5'), 'r', swmr=True) as hdf_file:
         for key in self.data.keys():
           value = np.array(hdf_file[key])
           if eval_subset:

@@ -85,7 +85,7 @@ class _MPIIFaceGazePP(Dataset):
     } # Load all data except images in memory
 
     for dd in self.dates:
-      with h5py.File(osp.join(root, f'{dd}.h5'), 'r', swmr=True) as hdf_file:
+      with h5py.File(osp.join(root, dd, f'annot.h5'), 'r', swmr=True) as hdf_file:
         for key in self.data.keys():
           value = np.array(hdf_file[key])
           self.data[key].append(value)
@@ -115,7 +115,7 @@ class _MPIIFaceGazePP(Dataset):
       sample_idx = idx - self.cumulative_sizes[date_idx - 1]
 
     face = self._load_crop(
-      osp.join(self.root, self.dates[date_idx], f'{sample_idx:04d}.jpg'),
+      osp.join(self.root, self.dates[date_idx], 'face', f'{sample_idx:04d}.jpg'),
     )
     gaze = self.data['face-gaze'][date_idx][sample_idx]
     pose = self.data['face-pose'][date_idx][sample_idx]

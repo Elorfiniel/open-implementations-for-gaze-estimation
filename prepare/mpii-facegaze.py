@@ -55,7 +55,7 @@ class Camera2Normal:
 
     # Revisiting Data Normalization: discard the scaling component `S_x`
     gaze = self._unit_vector(np.dot(R2, tgt - look_at))
-    pose = self._unit_vector(cv2.Rodrigues(np.dot(R2, R1))[0].reshape((3, )))
+    pose = cv2.Rodrigues(np.dot(R2, R1))[0].reshape((3, ))
 
     return warp, gaze, pose
 
@@ -117,6 +117,15 @@ def load_mpii_annot_pp_dd(date_folder, **kwargs):
 
   return label_file
 
+def calculate_face_center(landmarks_3d: np.ndarray):
+  # Use convention of ETH-XGaze data normalization
+
+  eyes_center = np.mean(landmarks_3d[:, 0:4], axis=1)
+  mouth_center = np.mean(landmarks_3d[:, 4:6], axis=1)
+  face_center = 0.5 * (eyes_center + mouth_center)
+
+  return face_center
+
 def process_pp_dd(persons_folder, pp, dd, opt_folder):
   # Load calibration data, such as camera matrix, screen size, etc
   calib_folder = osp.join(persons_folder, pp, 'Calibration')
@@ -128,12 +137,12 @@ def process_pp_dd(persons_folder, pp, dd, opt_folder):
   date_folder = osp.join(persons_folder, pp, dd)
   label_file = load_mpii_annot_pp_dd(date_folder, pp=pp, dd=dd)
 
-  # Create output folder for current person
-  person_opt_folder = osp.join(opt_folder, pp)
-  os.makedirs(person_opt_folder, exist_ok=True)
+  # Create output folder for current person and date
+  pp_dd_opt_folder = osp.join(opt_folder, pp, dd)
+  os.makedirs(pp_dd_opt_folder, exist_ok=True)
 
   # Create hdf datasets
-  hdf_file = h5py.File(osp.join(person_opt_folder, f'{dd}.h5'), 'w')
+  hdf_file = h5py.File(osp.join(pp_dd_opt_folder, f'annot.h5'), 'w')
   face_gaze = hdf_file.create_dataset(
     'face-gaze', shape=(len(label_file), 3),
     dtype=np.float32, chunks=(1, 3),
@@ -143,7 +152,7 @@ def process_pp_dd(persons_folder, pp, dd, opt_folder):
     dtype=np.float32, chunks=(1, 3),
   )
   # Create face patch folders
-  face_folder = osp.join(person_opt_folder, f'{dd}')
+  face_folder = osp.join(pp_dd_opt_folder, 'face')
   os.makedirs(face_folder, exist_ok=True)
 
   # Process gaze data for current person and date
@@ -171,12 +180,12 @@ def process_pp_dd(persons_folder, pp, dd, opt_folder):
     hr, ht = pose_estim.estimate(landmarks_2d)
     hR = cv2.Rodrigues(hr)[0]
     landmarks_3d = np.dot(hR, pose_estim.face_model.T) + ht
-    fe = np.average(landmarks_3d, axis=1)
+    fe = calculate_face_center(landmarks_3d)
 
     img_f, gaze_f, pose_f = cam2nor.normalize_data(fe, hR, img, tgt)
     cv2.imwrite(
       osp.join(face_folder, f'{idx:04d}.jpg'),
-      img_f,
+      cv2.resize(img_f, (224, 224), interpolation=cv2.INTER_CUBIC),
       [cv2.IMWRITE_JPEG_QUALITY, 100],
     )
     face_gaze[idx] = gaze_f; face_pose[idx] = pose_f
