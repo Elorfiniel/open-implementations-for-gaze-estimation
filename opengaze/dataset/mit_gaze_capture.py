@@ -94,6 +94,7 @@ class _GazeCaptureSubject(Dataset):
 
   def _load_crop(self, image_path):
     crop = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    crop = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
     crop = Image.fromarray(crop, mode='RGB')
     if self.transform:
       crop = self.transform(crop)
