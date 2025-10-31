@@ -10,7 +10,7 @@
 #   --qat-int8 <int8-quantized-model> \
 #   --input-shapes input_name=input_shape
 #
-# Use '--help' to see option descriptions.
+# Use '--help' to see option descriptions
 
 from opengaze.runtime.scripts import ScriptEnv, ScriptOptions
 
