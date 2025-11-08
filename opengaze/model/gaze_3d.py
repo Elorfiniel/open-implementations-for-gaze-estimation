@@ -4,6 +4,7 @@ from timm.layers import ConvNormAct
 from opengaze.registry import MODELS
 from opengaze.model.wrapper import DataFnMixin
 
+import copy
 import torch as torch
 import torch.nn as nn
 import torchvision as tv
@@ -493,6 +494,55 @@ class XGaze224(DataFnMixin, BaseModule):
     return gaze
 
 
+class _GazeTREncoderLayer(nn.Module):
+  def __init__(self, d_model: int = 32, n_head: int = 8,
+               d_ffn: int = 512, p_dropout: float = 0.1):
+    super(_GazeTREncoderLayer, self).__init__()
+
+    self.attn = nn.MultiheadAttention(d_model, n_head, p_dropout, batch_first=True)
+
+    self.dropout_1 = nn.Dropout(p=p_dropout)
+    self.norm_1 = nn.LayerNorm(normalized_shape=d_model)
+
+    self.ffn = nn.Sequential(
+      nn.Linear(in_features=d_model, out_features=d_ffn),
+      nn.ReLU(inplace=True),
+      nn.Dropout(p=p_dropout),
+      nn.Linear(in_features=d_ffn, out_features=d_model)
+    )
+
+    self.dropout_2 = nn.Dropout(p=p_dropout)
+    self.norm_2 = nn.LayerNorm(normalized_shape=d_model)
+
+  def forward(self, patch_token: torch.Tensor, pos_token: torch.Tensor):
+    src = patch_token + pos_token
+
+    attn_output, _ = self.attn(src, src, src)
+    src = self.norm_1(src + self.dropout_1(attn_output))
+    src = self.norm_2(src + self.dropout_2(self.ffn(src)))
+
+    return src
+
+class _GazeTREncoder(nn.Module):
+  def __init__(self, encoder_layer: _GazeTREncoderLayer,
+               num_layers: int, norm: nn.Module = None):
+    super(_GazeTREncoder, self).__init__()
+
+    self.layers = nn.ModuleList([
+      copy.deepcopy(encoder_layer)
+      for _ in range(num_layers)
+    ])
+    self.norm = norm
+
+  def forward(self, patch_token: torch.Tensor, pos_token: torch.Tensor):
+    for layer in self.layers:
+      patch_token = layer(patch_token, pos_token)
+
+    if self.norm is not None:
+      patch_token = self.norm(patch_token)
+
+    return patch_token
+
 @MODELS.register_module()
 class GazeTR(DataFnMixin, BaseModule):
   '''
@@ -530,14 +580,13 @@ class GazeTR(DataFnMixin, BaseModule):
     self.cls_token = nn.Parameter(torch.zeros(1, 1, d_model))
     self.pos_embed = nn.Embedding(num_embeddings=50, embedding_dim=d_model)
 
-    encoder_layer = nn.TransformerEncoderLayer(
+    encoder_layer = _GazeTREncoderLayer(
       d_model=d_model,
-      nhead=n_head,
-      dim_feedforward=d_ffn,
-      dropout=p_dropout,
-      batch_first=True,
+      n_head=n_head,
+      d_ffn=d_ffn,
+      p_dropout=p_dropout,
     )
-    self.encoder = nn.TransformerEncoder(
+    self.encoder = _GazeTREncoder(
       encoder_layer=encoder_layer,
       num_layers=n_encoders,
       norm=nn.LayerNorm(normalized_shape=d_model),
@@ -562,7 +611,7 @@ class GazeTR(DataFnMixin, BaseModule):
     )
     pos_token = self.pos_embed(pos).unsqueeze(dim=0).repeat(n, 1, 1)
 
-    feat = self.encoder(patch_token + pos_token)
+    feat = self.encoder(patch_token, pos_token)
     feat_cls = feat[:, 0, :]
     gaze = self.fc(feat_cls)
 
