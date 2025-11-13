@@ -3,7 +3,9 @@
 # This tool assumes that the checkpoint file produced by `mmengine`
 # contains a `state_dict` field, which contains the model weights
 #
-# Usage: python extract-state-dict.py mmengine-ckpt state-dict-file
+# Usage: python extract-state-dict.py \
+#          --mmengine-ckpt mmengine-ckpt \
+#          --state-dict-file state-dict-file
 #
 # Use '--help' to see option descriptions
 
@@ -31,7 +33,8 @@ def main_procedure(opts: argparse.Namespace):
     raise KeyError(f'No key "{opts.key}" found in checkpoint file.')
   state_dict = mmengine_ckpt[opts.key]
 
-  os.makedirs(osp.dirname(opts.state_dict_file), exist_ok=True)
+  if osp.dirname(opts.state_dict_file):
+    os.makedirs(osp.dirname(opts.state_dict_file), exist_ok=True)
   torch.save(state_dict, opts.state_dict_file)
 
 
