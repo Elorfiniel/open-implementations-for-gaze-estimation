@@ -40,11 +40,11 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='extract state dict from mmengine checkpoint.')
 
   parser.add_argument(
-    'mmengine-ckpt', type=str,
+    '--mmengine-ckpt', type=str, required=True,
     help='checkpoint file saved via mmengine.',
   )
   parser.add_argument(
-    'state-dict-file', type=str,
+    '--state-dict-file', type=str, required=True,
     help='state dict file to save extracted parameters.',
   )
 
